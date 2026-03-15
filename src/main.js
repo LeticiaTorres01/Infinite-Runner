@@ -12,8 +12,8 @@ const config = {
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 1000 },
-            debug: false // Mude para true depois para ver as caixas de colisão
+            gravity: { y: 500 },
+            debug: true // Mudei para true para vermos as hitboxes
         }
     },
     scene: [PlayScene]

@@ -2,8 +2,17 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Projeto Flappy Bird - IFB</title>
+    <title>Tori-tori</title>
     <style> 
+        @font-face {
+            font-family: 'KenneyPixel';
+            src: url("assets/kenney_kenney-fonts/Fonts/Kenney Pixel.ttf");
+        }
+        @font-face {
+            font-family: 'KenneyRocket';
+            src: url("assets/kenney_kenney-fonts/Fonts/Kenney Rocket.ttf");
+        }
+
         body { 
             margin: 0; 
             padding: 0;
@@ -13,7 +22,10 @@
             overflow: hidden;
         } 
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <!-- Elementos invisíveis apenas para forçar o navegador a carregar a fonte antes do jogo -->
+    <div style="font-family: 'KenneyPixel'; position: absolute; visibility: hidden;">.</div>
+    <div style="font-family: 'KenneyRocket'; position: absolute; visibility: hidden;">.</div>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 </head>
 <body>
     <script type="module" src="src/main.js"></script>
