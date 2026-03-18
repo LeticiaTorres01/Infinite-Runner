@@ -1,40 +1,46 @@
+import Poop from './Poop.js';
+
 export default class Bird extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) {
-    // Chama o construtor da classe pai (Sprite com física)
     super(scene, x, y, 'bird_fly');
-
-    // Adiciona este objeto à cena e ao mundo físico
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    // --- Configurações Iniciais do Pássaro ---
-    this.setScale(3); // Aumenta o tamanho
-    this.setCollideWorldBounds(true); // Impede que ele saia da tela
+    this.setScale(3); 
+    this.setCollideWorldBounds(true); 
 
-    // Verificação de segurança para o corpo físico
     if (this.body) {
       this.body.setAllowGravity(false);
     }
 
-    // Inicia a animação de voo
     this.play('fly');
-    this.speed = 300; // Velocidade mais equilibrada
+    this.speed = 300; 
     this.isDead = false;
+    
+    // SISTEMA DE VIDAS
+    this.lives = 3;
+    this.isInvincible = false;
+
+    // SISTEMA DE MUNIÇÃO
+    this.ammo = 10;
+    this.lastShootTime = 0;
+    this.shootDelay = 500;
+
+    // SISTEMA DE PONTUAÇÃO E XP
+    this.score = 0;
+    this.xp = 0;
+    this.level = 1;
+    this.xpNextLevel = 100;
   }
 
-  /**
-   * Método estático para carregar os assets do pássaro.
-   */
   static preload(scene) {
+    Poop.preload(scene);
     scene.load.spritesheet('bird_fly', 'assets/BirdFly.png', { 
       frameWidth: 16, 
       frameHeight: 16 
     });
   }
 
-  /**
-   * Define as animações do pássaro no gerenciador global do Phaser.
-   */
   static createAnimations(scene) {
     scene.anims.create({
       key: 'fly',
@@ -44,59 +50,110 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  // Método para processar a morte do personagem
+  gainExperience(amountXP, amountScore) {
+    if (this.isDead) return;
+
+    this.score += amountScore;
+    this.xp += amountXP;
+
+    // Lógica de Level Up
+    if (this.xp >= this.xpNextLevel) {
+      this.level++;
+      this.xp -= this.xpNextLevel;
+      // Notifica Level Up (pode adicionar efeito sonoro ou visual depois)
+      this.scene.events.emit('levelUp', this.level);
+    }
+
+    // Notifica a cena para atualizar o HUD
+    this.scene.events.emit('updateProgress', {
+      score: this.score,
+      xp: this.xp,
+      level: this.level,
+      xpNextLevel: this.xpNextLevel
+    });
+  }
+
+  takeDamage() {
+    if (this.isDead || this.isInvincible) return;
+    this.lives--;
+    this.scene.events.emit('updateLives', this.lives);
+    if (this.lives <= 0) {
+      this.die();
+    } else {
+      this.startInvincibility();
+    }
+  }
+
+  startInvincibility() {
+    this.isInvincible = true;
+    this.scene.tweens.add({
+      targets: this,
+      alpha: 0.2,
+      duration: 100,
+      ease: 'Linear',
+      yoyo: true,
+      repeat: 10,
+      onComplete: () => {
+        this.isInvincible = false;
+        this.alpha = 1;
+      }
+    });
+  }
+
   die() {
     if (this.isDead) return;
-    
     this.isDead = true;
-
-    // 1. Congele o frame
     this.anims.stop();
     this.setFrame(0); 
-
-    // 2. Feedback de impacto (Ficar vermelho)
     this.setTint(0xff0000);
-    
-    // 3. Queda livre
-    this.setAngle(90); // Rotaciona o bico para baixo
-    this.setVelocityX(0); // Zera velocidade horizontal
-    
+    this.setAngle(90);
+    this.setVelocityX(0);
     if (this.body) {
       this.body.setAllowGravity(true);
       this.body.setGravityY(1000); 
-      this.body.checkCollision.none = true; // FAZ ELE ATRAVESSAR O CHÃO
+      this.body.checkCollision.none = true;
     }
-
-    // Desativa colisões com o mundo para ele "despencar para fora da tela"
     this.setCollideWorldBounds(false);
   }
 
-  // Efeito de flutuar suavemente na tela de início
   idleFloating(time) {
     if (this.isDead) return;
     this.y += Math.sin(time / 200) * 0.5;
   }
 
   update(cursors) {
-    if (this.isDead) return; // Se estiver morto, ignora comandos de entrada
-
-    // Primeiro, zeramos a velocidade a cada frame para ele parar se soltarmos a tecla
+    if (this.isDead) return; 
     this.setVelocity(0);
 
-    // --- MOVIMENTO HORIZONTAL ---
+    if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
+      this.shootPoop();
+    }
+    
     if (cursors.left.isDown) {
       this.setVelocityX(-this.speed);
-      this.setFlipX(true); // ESPELHA O PÁSSARO
+      this.setFlipX(true);
     } else if (cursors.right.isDown) {
       this.setVelocityX(this.speed);
-      this.setFlipX(false); // VOLTA AO NORMAL
+      this.setFlipX(false);
     }
 
-    // --- MOVIMENTO VERTICAL ---
     if (cursors.up.isDown) {
       this.setVelocityY(-this.speed);
     } else if (cursors.down.isDown) {
       this.setVelocityY(this.speed);
+    }
+  }
+
+  shootPoop() {
+    const currentTime = this.scene.time.now;
+    if (this.ammo > 0 && currentTime > this.lastShootTime + this.shootDelay && this.scene.isGameStarted && !this.isDead) {
+      this.ammo--;
+      this.lastShootTime = currentTime;
+      const poop = new Poop(this.scene, this.x, this.y + 15, this.body.velocity.x);
+      if (this.scene.poops) {
+        this.scene.poops.add(poop);
+      }
+      this.scene.events.emit('updateAmmo', this.ammo);
     }
   }
 }
