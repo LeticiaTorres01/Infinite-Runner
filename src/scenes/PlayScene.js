@@ -2,33 +2,48 @@ import Bird from '../objects/Bird.js';
 import Mushroom from '../objects/Mushroom.js';
 import Bee from '../objects/Bee.js';
 import Poop from '../objects/Poop.js';
+import Flicker from '../objects/Flicker.js';
+import Orange from '../objects/Orange.js';
+import Fairy from '../objects/Fairy.js';
+import MagicProjectile from '../objects/MagicProjectile.js';
+import SwordBoss from '../objects/SwordBoss.js';
 
 export default class PlayScene extends Phaser.Scene {
   constructor() {
     super({ key: 'PlayScene' });
     this.bgLayers = [];
     this.bird = null;
+    this.boss = null;
     this.mushrooms = null;
     this.bees = null;
+    this.flickers = null;
+    this.oranges = null;
+    this.fairies = null;
+    this.magicProjectiles = null;
     this.poops = null;
     this.isGameStarted = false;
     this.isPaused = false;
     this.isGameOver = false;
     this.spawnTimer = 0;
+    this.flickerTimer = 0;
+    this.orangeTimer = 0;
+    this.fairyTimer = 0;
     this.hearts = [];
     this.ammoText = null;
     this.scoreText = null;
     this.levelText = null;
     this.xpBar = null;
     this.xpBarBg = null;
-    this.totalBeesSpawned = 0; // Controle de limite para teste
-    this.totalMushroomsSpawned = 0; // Controle de limite para teste
   }
 
   preload() {
     Bird.preload(this);
     Mushroom.preload(this);
     Bee.preload(this);
+    Flicker.preload(this);
+    Orange.preload(this);
+    Fairy.preload(this);
+    SwordBoss.preload(this);
     this.load.image('hearth', 'assets/hearth.png');
     this.load.image('poop_icon', 'assets/item1193.png');
     this.load.image('ceu_sombrio', 'assets/ceu_sombrio.jpg');
@@ -49,8 +64,9 @@ export default class PlayScene extends Phaser.Scene {
     this.isPaused = false;
     this.isGameOver = false;
     this.spawnTimer = 0;
-    this.totalBeesSpawned = 0; 
-    this.totalMushroomsSpawned = 0; 
+    this.flickerTimer = 0;
+    this.orangeTimer = 0;
+    this.fairyTimer = 0;
     this.bgLayers = [];
     this.hearts = [];
 
@@ -60,6 +76,10 @@ export default class PlayScene extends Phaser.Scene {
     Bird.createAnimations(this);
     Mushroom.createAnimations(this);
     Bee.createAnimations(this);
+    Flicker.createAnimations(this);
+    Orange.createAnimations(this);
+    Fairy.createAnimations(this);
+    SwordBoss.createAnimations(this);
 
     const addLayer = (key, speed, isLight = false) => {
       const texture = this.textures.get(key);
@@ -101,7 +121,15 @@ export default class PlayScene extends Phaser.Scene {
 
     this.mushrooms = this.add.group();
     this.bees = this.add.group();
+    this.flickers = this.add.group();
+    this.oranges = this.add.group();
+    this.fairies = this.add.group();
+    this.magicProjectiles = this.add.group();
     this.poops = this.add.group();
+
+    this.events.on('fairyShoot', (proj) => {
+      this.magicProjectiles.add(proj);
+    });
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
@@ -114,39 +142,83 @@ export default class PlayScene extends Phaser.Scene {
     this.events.on('updateAmmo', (ammo) => this.updateAmmoHUD(ammo));
     this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
 
+    // Colisões e Overlaps
     this.physics.add.collider(this.bird, this.ground, () => {
       if (!this.bird.isDead) this.bird.takeDamage();
     });
 
-    this.physics.add.overlap(this.bird, this.mushrooms, (bird, mushroom) => {
-      if (!bird.isDead && !mushroom.isDead && !mushroom.isStunned) bird.takeDamage();
-    });
-
-    this.physics.add.overlap(this.bird, this.bees, (bird, bee) => {
-      if (!bird.isDead) bird.takeDamage();
-    });
-
     this.physics.add.collider(this.mushrooms, this.ground);
+    this.physics.add.collider(this.oranges, this.ground);
 
     this.physics.add.overlap(this.poops, this.mushrooms, (poop, mushroom) => {
-      if (!mushroom.isDead) {
-        poop.destroy(); 
-        mushroom.takeDamage();
-        if (mushroom.hp <= 0) this.bird.gainExperience(mushroom.xpValue, mushroom.scoreValue);
-      }
-    });
-
-    this.physics.add.overlap(this.poops, this.bees, (poop, bee) => {
-      if (!bee.isDead) {
-        poop.destroy();
-        bee.die(); 
-        this.bird.gainExperience(30, 150);
-      }
+      if (!mushroom.isDead) { poop.destroy(); mushroom.takeDamage(); }
     });
 
     this.createStartMenu(w, h);
     this.createPauseMenu(w, h);
     this.createGameOverMenu(w, h);
+  }
+
+  spawnBoss() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    // Nasce bem no alto para testar a queda e colisão
+    this.boss = new SwordBoss(this, w / 2, h / 2);
+    
+    // Colisões do Boss
+    this.physics.add.collider(this.boss, this.ground);
+    this.physics.add.overlap(this.bird, this.boss, (bird, boss) => {
+        if (!bird.isDead && !boss.isDead && (boss.anims.currentAnim.key === 'boss_spin_attack' || boss.anims.currentAnim.key === 'boss_heavy_attack')) {
+            bird.takeDamage();
+        }
+    });
+
+    this.physics.add.overlap(this.poops, this.boss, (poop, boss) => {
+        if (!boss.isDead) {
+            poop.destroy();
+            boss.takeDamage();
+        }
+    });
+  }
+
+  update(time, delta) {
+    if (this.isGameOver) return;
+    if (this.pauseKey && Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.togglePause();
+    if (this.isPaused) return;
+
+    if (this.bird && this.bird.isDead) {
+      if (this.bird.y > this.scale.height + 50) { this.isGameOver = true; this.gameOverGroup.setVisible(true); }
+      if (this.boss) this.boss.update(this.bird, time, delta);
+      return;
+    }
+
+    this.bgLayers.forEach(layer => { 
+        // Se o boss existir e não estiver morto, a floresta para
+        if (this.boss && !this.boss.isDead) {
+            return; 
+        }
+        layer.sprite.tilePositionX += layer.speed; 
+    });
+
+    if (this.isGameStarted) {
+      this.bird.update(this.cursors);
+      
+      // Spawn do Boss quando começar (ou após delay)
+      if (!this.boss) {
+          this.spawnBoss();
+      }
+
+      if (this.boss) {
+          this.boss.update(this.bird, time, delta);
+          // O pássaro agora é empurrado pela "parada" do cenário se o boss estiver vivo
+          if (!this.boss.isDead && this.bird.x > 50) {
+              // this.bird.x -= 1; // Opcional: manter pressão se quiser
+          }
+      }
+      this.poops.getChildren().forEach(p => p.update());
+    } else {
+      this.bird.idleFloating(time);
+    }
   }
 
   createHeartsHUD() {
@@ -217,57 +289,5 @@ export default class PlayScene extends Phaser.Scene {
     this.isPaused = !this.isPaused;
     this.pauseGroup.setVisible(this.isPaused);
     if (this.isPaused) this.physics.pause(); else this.physics.resume();
-  }
-
-  spawnMushroom() {
-    const mushroom = new Mushroom(this, this.scale.width + 100, this.scale.height - 120);
-    this.mushrooms.add(mushroom);
-    this.totalMushroomsSpawned++;
-  }
-
-  spawnBee() {
-    const x = this.scale.width + 100;
-    const y = Phaser.Math.Between(100, this.scale.height - 200);
-    const bee = new Bee(this, x, y);
-    this.bees.add(bee);
-    this.totalBeesSpawned++; // Incrementa o contador
-  }
-
-  update(time, delta) {
-    if (this.isGameOver) return;
-    if (this.pauseKey && Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.togglePause();
-    if (this.isPaused) return;
-
-    if (this.bird && this.bird.isDead) {
-      if (this.bird.y > this.scale.height + 50) { this.isGameOver = true; this.gameOverGroup.setVisible(true); }
-      this.mushrooms.getChildren().forEach(m => m.update(this.bird));
-      this.bees.getChildren().forEach(b => b.update(this.bird));
-      return;
-    }
-
-    this.bgLayers.forEach(layer => { layer.sprite.tilePositionX += layer.speed; });
-
-    if (this.isGameStarted) {
-      this.bird.update(this.cursors);
-      
-      this.spawnTimer += delta;
-      
-      // SPAWN DE TESTE: ABELHAS E COGUMELOS
-      if (this.spawnTimer > 2500) {
-        if (this.totalBeesSpawned < 3) {
-          this.spawnBee();
-        }
-        if (this.totalMushroomsSpawned < 2) {
-          this.spawnMushroom();
-        }
-        this.spawnTimer = 0;
-      }
-      
-      this.mushrooms.getChildren().forEach(m => m.update(this.bird));
-      this.bees.getChildren().forEach(b => b.update(this.bird));
-      this.poops.getChildren().forEach(p => p.update());
-    } else {
-      this.bird.idleFloating(time);
-    }
   }
 }

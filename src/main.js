@@ -1,3 +1,4 @@
+import StoryScene from './scenes/StoryScene.js';
 import PlayScene from './scenes/PlayScene.js';
 
 const config = {
@@ -16,7 +17,7 @@ const config = {
             debug: true // Mudei para true para vermos as hitboxes
         }
     },
-    scene: [PlayScene]
+    scene: [StoryScene, PlayScene]
 };
 
 const game = new Phaser.Game(config);
