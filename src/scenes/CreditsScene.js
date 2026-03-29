@@ -108,14 +108,13 @@ export default class CreditsScene extends Phaser.Scene {
       // Se o texto terminar de subir
       if (this.crawlContainer.y < -1200) {
         this.isFinished = true;
-      }
-    }
-
-    if (Phaser.Input.Keyboard.JustDown(this.key1)) {
-        this.cameras.main.fadeOut(1000, 0, 0, 0);
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-            this.scene.start('StoryScene');
+        this.time.delayedCall(3000, () => {
+            this.cameras.main.fadeOut(2000, 0, 0, 0);
+            this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+                this.scene.start('StoryScene');
+            });
         });
+      }
     }
   }
 }

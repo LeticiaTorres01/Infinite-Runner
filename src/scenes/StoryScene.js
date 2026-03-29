@@ -7,7 +7,7 @@ export default class StoryScene extends Phaser.Scene {
     super({ key: 'StoryScene' });
     this.bgLayers = [];
     this.crawlContainer = null;
-    this.scrollSpeed = 1.2; // Velocidade de subida do texto
+    this.scrollSpeed = 0.9; // Velocidade de subida do texto
     this.isTransitioning = false;
   }
 
@@ -68,27 +68,30 @@ export default class StoryScene extends Phaser.Scene {
 
     // --- LETREIRO (THE CRAWL) ---
     const storyContent = 
-      "A pacifica floresta de Tsukimori\nja nao existe mais...\n\n" +
-      "Kage-kyo, uma criatura sombria e poderosa,\nabriu uma fenda,\n" +
-      "distorcendo nosso lar em uma\nescuridao irreconhecivel.\n\n" +
-      "Seus monstros\nespreitam em cada sombra.\n\n" +
-      "Mas a esperanca ainda voa.\n" +
-      "Tori, lute pela nossa terra!";
+      "A paz de Tsukimori foi estraçalhada.\n" +
+      "Kage-kyō, um lorde de outra dimensão,\n" +
+      "invadiu nosso mundo, transformando a\n" +
+      "floresta em um campo de batalha\n" +
+      "sombrio e distorcido.\n\n" +
+      "Seus exércitos de monstros\n" +
+      "estão por toda parte, e o\n" +
+      "ambiente ao redor é hostil.\n\n" +
+      "Você é Tori, um herói improvável\n" +
+      "armado apenas com coragem e velocidade.\n" +
+      "Sua missão é clara:\n" +
+      "voar através do inferno em que\n" +
+      "sua casa se tornou, desviar de\n" +
+      "ameaças, eliminar os monstros\n e alcançar o\n" +
+      "epicentro da invasão para\n" +
+      "derrotar o tirano.\n\n" +
+      "O destino de Tsukimori\n" +
+      "depende das suas asas.";
 
     this.crawlContainer = this.add.container(w / 2, h + 50);
 
-    const title = this.add.text(0, 0, "TORI-TORI", {
-      fontFamily: 'KenneyRocket',
-      fontSize: '72px',
-      fill: '#ffffff',
-      align: 'center',
-      stroke: '#000000',
-      strokeThickness: 10
-    }).setOrigin(0.5);
-
-    const body = this.add.text(0, 160, storyContent, {
+    const body = this.add.text(0, 0, storyContent, {
       fontFamily: 'KenneyPixel',
-      fontSize: '48px',
+      fontSize: '64px',
       fill: '#ffffff',
       align: 'center',
       lineSpacing: 18,
@@ -96,7 +99,7 @@ export default class StoryScene extends Phaser.Scene {
       strokeThickness: 5
     }).setOrigin(0.5, 0);
 
-    this.crawlContainer.add([title, body]);
+    this.crawlContainer.add([body]);
 
     // --- TEXTO DE PULO ---
     this.skipText = this.add.text(w - 30, h - 30, "[PRESSIONE ESPAÇO PARA PULAR]", {
@@ -115,16 +118,11 @@ export default class StoryScene extends Phaser.Scene {
     });
 
     // --- ENTRADA DE USUÁRIO ---
-    this.key1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
     this.input.keyboard.on('keydown-SPACE', () => this.startPlayScene());
     this.input.on('pointerdown', () => this.startPlayScene());
   }
 
   update() {
-    // Gatilho para testes
-    if (this.key1 && Phaser.Input.Keyboard.JustDown(this.key1)) {
-        this.startPlayScene();
-    }
     // Movimento Parallax
     this.bgLayers.forEach(layer => {
       layer.sprite.tilePositionX += layer.speed;

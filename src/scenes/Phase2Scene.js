@@ -101,8 +101,9 @@ export default class Phase2Scene extends Phaser.Scene {
     this.ground = this.add.rectangle(-2000, h - groundHeight, w + 4000, groundHeight).setOrigin(0, 0);
     this.physics.add.existing(this.ground, true);
 
-    this.bird = new Bird(this, 100, h / 2);
+    this.bird = new Bird(this, -500, h / 2); // Começa bem longe
     this.bird.setDepth(50);
+    if (this.bird.body) this.bird.body.enable = false; // Desativa física inicial
 
     this.mushrooms = this.add.group();
     this.bees = this.add.group();
@@ -110,8 +111,6 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    this.key1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
-    this.keyB = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
 
     this.createHeartsHUD();
     this.createAmmoHUD();
@@ -129,8 +128,52 @@ export default class Phase2Scene extends Phaser.Scene {
     this.createGameOverMenu(w, h);
 
     this.cameras.main.fadeIn(1000, 0, 0, 0);
+
+    // Tori e HUD começam totalmente invisíveis
+    this.bird.setVisible(false);
+    this.setHUDAlpha(0);
     
     this.add.text(w/2, 100, "FASE 2 - O VAZIO", { fontSize: '40px', fontFamily: 'KenneyRocket', fill: '#f0f' }).setOrigin(0.5).setDepth(600);
+  }
+
+  setHUDAlpha(alpha) {
+    this.hearts.forEach(h => h.setAlpha(alpha));
+    if (this.ammoIcon) this.ammoIcon.setAlpha(alpha);
+    if (this.ammoText) this.ammoText.setAlpha(alpha);
+    if (this.scoreText) this.scoreText.setAlpha(alpha);
+    if (this.levelText) this.levelText.setAlpha(alpha);
+    if (this.xpBarBg) this.xpBarBg.setAlpha(alpha);
+    if (this.xpBar) this.xpBar.setAlpha(alpha);
+  }
+
+  startCinematicIntro() {
+    const h = this.scale.height;
+    
+    // 1. Garante posição e visibilidade
+    this.bird.setPosition(-150, h / 2);
+    this.bird.setVisible(true);
+    if (this.bird.body) this.bird.body.enable = true; // Ativa a física agora
+    
+    this.tweens.add({
+        targets: this.bird,
+        x: 100,
+        duration: 2500,
+        ease: 'Power2.easeOut',
+        onComplete: () => {
+            this.isGameStarted = true;
+            this.tweens.add({
+                targets: [
+                    ...this.hearts, 
+                    this.ammoIcon, this.ammoText, 
+                    this.scoreText, this.levelText, 
+                    this.xpBarBg, this.xpBar
+                ],
+                alpha: 1,
+                duration: 1500,
+                ease: 'Linear'
+            });
+        }
+    });
   }
 
   spawnMonsters(time, delta) {
@@ -189,13 +232,6 @@ export default class Phase2Scene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.isGameOver) return;
-    if (this.key1 && Phaser.Input.Keyboard.JustDown(this.key1)) {
-        this.cameras.main.fadeOut(1000, 0, 0, 0);
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => { this.scene.start('CreditsScene'); });
-    }
-    if (this.keyB && Phaser.Input.Keyboard.JustDown(this.keyB)) {
-        this.startBossSequence();
-    }
     if (this.pauseKey && Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.togglePause();
     if (this.isPaused) return;
 
@@ -221,18 +257,23 @@ export default class Phase2Scene extends Phaser.Scene {
   }
 
   createHeartsHUD() {
+    const h = this.scale.height;
     this.hearts.forEach(h => h.destroy());
     this.hearts = [];
     for (let i = 0; i < 3; i++) {
-      const heart = this.add.image(40 + (i * 45), 40, 'hearth').setScale(1).setDepth(500).setScrollFactor(0);
+      const heart = this.add.image(40 + (i * 45), h - 25, 'hearth').setScale(1).setDepth(500).setScrollFactor(0);
       this.hearts.push(heart);
     }
   }
+
   updateHeartsHUD(lives) { this.hearts.forEach((h, i) => h.setVisible(i < lives)); }
+
   createAmmoHUD() {
-    this.add.image(40, 85, 'poop_icon').setScale(2).setDepth(500).setScrollFactor(0);
-    this.ammoText = this.add.text(65, 75, 'x 10', { fontSize: '24px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 3 }).setDepth(500).setScrollFactor(0);
+    const h = this.scale.height;
+    this.ammoIcon = this.add.image(200, h - 25, 'poop_icon').setScale(2).setDepth(500).setScrollFactor(0);
+    this.ammoText = this.add.text(225, h - 35, 'x 10', { fontSize: '24px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 3 }).setDepth(500).setScrollFactor(0);
   }
+
   updateAmmoHUD(ammo) { if (this.ammoText) this.ammoText.setText('x ' + ammo); }
 
   createStartMenu(w, h) {
@@ -240,7 +281,10 @@ export default class Phase2Scene extends Phaser.Scene {
     const titleText = this.add.text(w / 2, h / 2 - 100, 'FASE 2', { fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(100);
     const startBtn = this.add.text(w / 2, h / 2 + 50, 'INICIAR TESTE', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#330066', padding: { x: 30, y: 15 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(100);
     this.startGroup.add(titleText); this.startGroup.add(startBtn);
-    startBtn.on('pointerdown', () => { this.isGameStarted = true; this.startGroup.clear(true, true); });
+    startBtn.on('pointerdown', () => { 
+        this.startGroup.clear(true, true); 
+        this.startCinematicIntro();
+    });
   }
 
   createPauseMenu(w, h) {
