@@ -7,7 +7,6 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.setScale(3); 
-    this.setCollideWorldBounds(true); 
 
     if (this.body) {
       this.body.setAllowGravity(false);
@@ -20,9 +19,18 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     // SISTEMA DE VIDAS
     this.lives = 3;
     this.isInvincible = false;
+    this.shields = 0; 
+    this.storedShields = 0; // Novo: contador de escudos guardados
+
+    // ESCUDO VISUAL
+    this.shieldSprite = scene.add.sprite(x, y, 'electric_shield');
+    this.shieldSprite.setScale(0.5);
+    this.shieldSprite.setVisible(false);
+    this.shieldSprite.setDepth(this.depth + 1);
 
     // SISTEMA DE MUNIÇÃO
     this.ammo = 10;
+    this.maxAmmo = 30; // Limite máximo de coco
     this.lastShootTime = 0;
     this.shootDelay = 500;
 
@@ -31,6 +39,9 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.xp = 0;
     this.level = 1;
     this.xpNextLevel = 100;
+
+    // Tecla para usar escudo
+    this.shieldKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
   }
 
   static preload(scene) {
@@ -39,15 +50,76 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
       frameWidth: 16, 
       frameHeight: 16 
     });
+    scene.load.spritesheet('electric_shield', 'assets/Effect_ElectricShield_1_265x265.png', {
+      frameWidth: 265,
+      frameHeight: 265
+    });
+    // Ícone do escudo guardado
+    scene.load.image('shield_item_icon', 'assets/item556.png');
   }
 
   static createAnimations(scene) {
-    scene.anims.create({
-      key: 'fly',
-      frames: scene.anims.generateFrameNumbers('bird_fly', { start: 0, end: 7 }),
-      frameRate: 10,
-      repeat: -1
-    });
+    if (!scene.anims.exists('fly')) {
+        scene.anims.create({
+          key: 'fly',
+          frames: scene.anims.generateFrameNumbers('bird_fly', { start: 0, end: 7 }),
+          frameRate: 10,
+          repeat: -1
+        });
+    }
+
+    if (!scene.anims.exists('shield_anim')) {
+        scene.anims.create({
+          key: 'shield_anim',
+          frames: scene.anims.generateFrameNumbers('electric_shield', { start: 0, end: 29 }),
+          frameRate: 20,
+          repeat: -1
+        });
+    }
+  }
+
+  // Agora apenas guarda o item
+  collectShieldItem() {
+    if (this.isDead) return;
+    this.storedShields++;
+    this.scene.events.emit('updateStoredShields', this.storedShields);
+  }
+
+  useShield() {
+    if (this.isDead || this.storedShields <= 0 || this.shields > 0) return;
+    
+    this.storedShields--;
+    this.shields = 3;
+    this.shieldSprite.setVisible(true);
+    this.shieldSprite.play('shield_anim');
+    this.setTint(0x00ffff);
+    
+    this.notifyHUD();
+    this.scene.events.emit('updateStoredShields', this.storedShields);
+  }
+
+  activateShield() {
+    // Método mantido para compatibilidade se necessário, mas agora usamos collectShieldItem
+    this.collectShieldItem();
+  }
+
+  deactivateShield() {
+    this.shields = 0;
+    this.shieldSprite.setVisible(false);
+    this.shieldSprite.stop();
+    this.clearTint();
+    this.notifyHUD();
+  }
+
+  notifyHUD() {
+    this.scene.events.emit('updateLives', { lives: this.lives, shields: this.shields });
+  }
+
+  gainAmmo(amount) {
+    if (this.isDead) return;
+    this.ammo += amount;
+    if (this.ammo > this.maxAmmo) this.ammo = this.maxAmmo;
+    this.scene.events.emit('updateAmmo', this.ammo);
   }
 
   gainExperience(amountXP, amountScore) {
@@ -56,15 +128,12 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.score += amountScore;
     this.xp += amountXP;
 
-    // Lógica de Level Up
     if (this.xp >= this.xpNextLevel) {
       this.level++;
       this.xp -= this.xpNextLevel;
-      // Notifica Level Up (pode adicionar efeito sonoro ou visual depois)
       this.scene.events.emit('levelUp', this.level);
     }
 
-    // Notifica a cena para atualizar o HUD
     this.scene.events.emit('updateProgress', {
       score: this.score,
       xp: this.xp,
@@ -75,8 +144,22 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
 
   takeDamage() {
     if (this.isDead || this.isInvincible) return;
+
+    if (this.shields > 0) {
+        this.shields--;
+        if (this.shields <= 0) {
+            this.shieldSprite.setVisible(false);
+            this.shieldSprite.stop();
+            this.clearTint();
+        }
+        this.notifyHUD();
+        this.startInvincibility();
+        return;
+    }
+
     this.lives--;
-    this.scene.events.emit('updateLives', this.lives);
+    this.notifyHUD();
+    
     if (this.lives <= 0) {
       this.die();
     } else {
@@ -103,6 +186,8 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
   die() {
     if (this.isDead) return;
     this.isDead = true;
+    this.shields = 0;
+    if (this.shieldSprite) this.shieldSprite.setVisible(false);
     this.anims.stop();
     this.setFrame(0); 
     this.setTint(0xff0000);
@@ -119,11 +204,26 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
   idleFloating(time) {
     if (this.isDead) return;
     this.y += Math.sin(time / 200) * 0.5;
+    if (this.shields > 0 && this.shieldSprite) {
+        this.shieldSprite.setPosition(this.x, this.y);
+    }
   }
 
   update(cursors) {
-    if (this.isDead) return; 
+    if (this.isDead) {
+        if (this.shieldSprite) this.shieldSprite.setVisible(false);
+        return;
+    } 
     this.setVelocity(0);
+
+    // Lógica para usar escudo
+    if (Phaser.Input.Keyboard.JustDown(this.shieldKey)) {
+        this.useShield();
+    }
+
+    if (this.shields > 0 && this.shieldSprite) {
+        this.shieldSprite.setPosition(this.x, this.y);
+    }
 
     if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
       this.shootPoop();

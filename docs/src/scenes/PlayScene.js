@@ -5,6 +5,9 @@ import Poop from '../objects/Poop.js';
 import Flicker from '../objects/Flicker.js';
 import Orange from '../objects/Orange.js';
 import Fairy from '../objects/Fairy.js';
+import BlueCoin from '../objects/BlueCoin.js';
+import GoldCoin from '../objects/GoldCoin.js';
+import Fruit from '../objects/Fruit.js';
 import MagicProjectile from '../objects/MagicProjectile.js';
 import SwordBoss from '../objects/SwordBoss.js';
 
@@ -17,6 +20,9 @@ export default class PlayScene extends Phaser.Scene {
     this.mushrooms = null;
     this.bees = null;
     this.flickers = null;
+    this.coins = null;
+    this.goldCoins = null;
+    this.fruits = null;
     this.oranges = null;
     this.fairies = null;
     this.magicProjectiles = null;
@@ -29,6 +35,20 @@ export default class PlayScene extends Phaser.Scene {
     this.bgSpeedFactor = 1.0;
     this.spawnTimer = 0;
     this.hearts = [];
+    this.shieldIcons = [];
+
+    // --- ROUND MANAGER STATE ---
+    this.currentRound = 1;
+    this.spawnQueue = [];
+    this.isSpawningFinished = false; // Tarefa 2
+    this.isRoundTransitioning = false; // Tarefa 5
+    this.roundRecipes = [
+      { round: 1, flickers: 3, mushrooms: 0, bees: 0, fruits: 2, coins: 1 },
+      { round: 2, flickers: 0, mushrooms: 4, bees: 0, fruits: 2, coins: 2 },
+      { round: 3, flickers: 4, mushrooms: 3, bees: 2, fruits: 3, coins: 10 },
+      { round: 4, flickers: 6, mushrooms: 4, bees: 4, fruits: 4, coins: 15 },
+      { round: 5, flickers: 10, mushrooms: 6, bees: 6, fruits: 5, coins: 20 }
+    ];
   }
 
   preload() {
@@ -38,7 +58,12 @@ export default class PlayScene extends Phaser.Scene {
     Flicker.preload(this);
     Orange.preload(this);
     Fairy.preload(this);
+    BlueCoin.preload(this);
+    GoldCoin.preload(this);
+    Fruit.preload(this);
     this.load.image('hearth', 'assets/hearth.png');
+    this.load.image('hearth_dead', 'assets/item1167.png');
+    this.load.image('shield_icon', 'assets/item199.png');
     this.load.image('poop_icon', 'assets/item1193.png');
     this.load.image('ceu_sombrio', 'assets/ceu_sombrio.jpg');
     this.load.image('bg_cielo', 'assets/Layer_0009_2.png');
@@ -60,9 +85,13 @@ export default class PlayScene extends Phaser.Scene {
     this.isTransitioning = false;
     this.isBossSpawned = false;
     this.bgSpeedFactor = 1.0;
-    this.spawnTimer = 0;
     this.bgLayers = [];
     this.hearts = [];
+    this.shieldIcons = [];
+    this.currentRound = 1;
+    this.spawnQueue = [];
+    this.isSpawningFinished = false;
+    this.isRoundTransitioning = false;
 
     const w = this.scale.width;
     const h = this.scale.height;
@@ -73,6 +102,8 @@ export default class PlayScene extends Phaser.Scene {
     Flicker.createAnimations(this);
     Orange.createAnimations(this);
     Fairy.createAnimations(this);
+    BlueCoin.createAnimations(this);
+    GoldCoin.createAnimations(this);
 
     const addLayer = (key, speed, isLight = false) => {
       const texture = this.textures.get(key);
@@ -105,9 +136,9 @@ export default class PlayScene extends Phaser.Scene {
     this.ground = this.add.rectangle(-2000, h - groundHeight, w + 4000, groundHeight).setOrigin(0, 0);
     this.physics.add.existing(this.ground, true);
 
-    this.bird = new Bird(this, -500, h / 2); // Começa bem longe
+    this.bird = new Bird(this, -500, h / 2); 
     this.bird.setDepth(50);
-    if (this.bird.body) this.bird.body.enable = false; // Desativa física inicial
+    if (this.bird.body) this.bird.body.enable = false;
 
     this.physics.add.collider(this.bird, this.ground, () => {
       if (!this.bird.isDead) this.bird.takeDamage();
@@ -115,6 +146,10 @@ export default class PlayScene extends Phaser.Scene {
 
     this.mushrooms = this.add.group();
     this.bees = this.add.group();
+    this.flickers = this.add.group();
+    this.coins = this.add.group();
+    this.goldCoins = this.add.group();
+    this.fruits = this.add.group();
     this.poops = this.add.group();
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -122,32 +157,66 @@ export default class PlayScene extends Phaser.Scene {
 
     this.createHeartsHUD();
     this.createAmmoHUD();
+    this.createShieldInventoryHUD();
     this.createProgressionHUD();
 
-    this.events.on('updateLives', (lives) => this.updateHeartsHUD(lives));
+    this.events.on('updateLives', (data) => this.updateHeartsHUD(data));
     this.events.on('updateAmmo', (ammo) => this.updateAmmoHUD(ammo));
+    this.events.on('updateStoredShields', (count) => this.updateShieldInventoryHUD(count));
     this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
 
     this.physics.add.overlap(this.poops, this.mushrooms, (poop, mushroom) => {
       if (!mushroom.isDead) { poop.destroy(); mushroom.takeDamage(); }
     });
 
+    this.physics.add.overlap(this.poops, this.flickers, (poop, flicker) => {
+      if (!flicker.isDead) { poop.destroy(); flicker.takeDamage(); }
+    });
+
+    this.physics.add.overlap(this.bird, this.flickers, (bird, flicker) => {
+      if (!flicker.isDead && !bird.isDead) {
+        bird.takeDamage();
+        flicker.die();
+      }
+    });
+
+    this.physics.add.overlap(this.bird, this.coins, (bird, coin) => {
+        if (!bird.isDead && !coin.isCollected) {
+            coin.collect();
+            bird.collectShieldItem();
+            bird.gainExperience(5, 50);
+        }
+    });
+
+    this.physics.add.overlap(this.bird, this.goldCoins, (bird, coin) => {
+        if (!bird.isDead && !coin.isCollected) {
+            coin.collect(bird);
+        }
+    });
+
+    this.physics.add.overlap(this.bird, this.fruits, (bird, fruit) => {
+        if (!bird.isDead && !fruit.isCollected) {
+            fruit.collect(bird);
+        }
+    });
+
     this.createStartMenu(w, h);
     this.createPauseMenu(w, h);
     this.createGameOverMenu(w, h);
 
-    // Fade-in ao iniciar a cena
     this.cameras.main.fadeIn(1000, 0, 0, 0);
 
-    // Tori e HUD começam totalmente invisíveis
     this.bird.setVisible(false);
     this.setHUDAlpha(0);
   }
 
   setHUDAlpha(alpha) {
     this.hearts.forEach(h => h.setAlpha(alpha));
+    this.shieldIcons.forEach(s => s.setAlpha(alpha));
     if (this.ammoIcon) this.ammoIcon.setAlpha(alpha);
     if (this.ammoText) this.ammoText.setAlpha(alpha);
+    if (this.shieldInvIcon) this.shieldInvIcon.setAlpha(alpha);
+    if (this.shieldInvText) this.shieldInvText.setAlpha(alpha);
     if (this.scoreText) this.scoreText.setAlpha(alpha);
     if (this.levelText) this.levelText.setAlpha(alpha);
     if (this.xpBarBg) this.xpBarBg.setAlpha(alpha);
@@ -156,26 +225,24 @@ export default class PlayScene extends Phaser.Scene {
 
   startCinematicIntro() {
     const h = this.scale.height;
-    
-    // 1. Garante posição e visibilidade
     this.bird.setPosition(-150, h / 2);
     this.bird.setVisible(true);
-    if (this.bird.body) this.bird.body.enable = true; // Ativa a física agora
-    
-    // 2. Voo suave até o ponto inicial
+    if (this.bird.body) this.bird.body.enable = true;
     this.tweens.add({
         targets: this.bird,
-        x: 100,
-        duration: 2500,
+        x: 150,
+        duration: 3000,
         ease: 'Power2.easeOut',
         onComplete: () => {
-            // 3. Após chegar, inicia o jogo e a HUD
             this.isGameStarted = true;
-
+            this.bird.setCollideWorldBounds(true);
+            this.startRound();
             this.tweens.add({
                 targets: [
-                    ...this.hearts, 
-                    this.ammoIcon, this.ammoText, 
+                    ...this.hearts,
+                    ...this.shieldIcons,
+                    this.ammoIcon, this.ammoText,
+                    this.shieldInvIcon, this.shieldInvText, 
                     this.scoreText, this.levelText, 
                     this.xpBarBg, this.xpBar
                 ],
@@ -187,37 +254,118 @@ export default class PlayScene extends Phaser.Scene {
     });
   }
 
-  spawnMonsters(time, delta) {
-    if (this.isBossSpawned || !this.isGameStarted || this.isGameOver || this.isPaused) return;
+  // --- ROUND MANAGER METHODS ---
 
-    this.spawnTimer += delta;
-    if (this.spawnTimer > 2500) { 
-      this.spawnTimer = 0;
-      const w = this.scale.width;
-      const h = this.scale.height;
+  startRound() {
+    if (this.isGameOver) return;
 
-      if (Phaser.Math.Between(0, 100) < 70) {
-        const m = new Mushroom(this, w + 100, h - 50);
-        this.mushrooms.add(m);
-        this.physics.add.collider(m, this.ground);
-      } else {
-        const b = new Bee(this, w + 100, Phaser.Math.Between(100, h - 200));
-        this.bees.add(b);
-      }
+    const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
+    if (!recipe) {
+        this.startTransitionToPhase2();
+        return;
     }
+
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    const roundText = this.add.text(w / 2, h / 2, `ROUND ${this.currentRound}`, {
+        fontFamily: 'KenneyRocket',
+        fontSize: '64px',
+        fill: '#fff',
+        stroke: '#000',
+        strokeThickness: 8
+    }).setOrigin(0.5).setDepth(1000);
+
+    this.tweens.add({
+        targets: roundText,
+        alpha: 0,
+        y: h / 2 - 100,
+        duration: 2000,
+        ease: 'Power2',
+        onComplete: () => roundText.destroy()
+    });
+
+    // Reseta flags do Round (Tarefas 2 e 5)
+    this.isSpawningFinished = false;
+    this.isRoundTransitioning = false;
+    
+    this.spawnQueue = [];
+    for (let i = 0; i < recipe.flickers; i++) this.spawnQueue.push('flicker');
+    for (let i = 0; i < recipe.mushrooms; i++) this.spawnQueue.push('mushroom');
+    for (let i = 0; i < recipe.bees; i++) this.spawnQueue.push('bee');
+    for (let i = 0; i < recipe.fruits; i++) this.spawnQueue.push('fruit');
+    for (let i = 0; i < recipe.coins; i++) this.spawnQueue.push('coin');
+
+    Phaser.Utils.Array.Shuffle(this.spawnQueue);
+    this.processSpawnQueue();
   }
 
-  startTransitionToPhase2() {
-    if (this.isTransitioning) return;
-    this.isTransitioning = true;
-    this.cameras.main.fadeOut(1000, 0, 0, 0);
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      const w = this.scale.width;
-      const h = this.scale.height;
-      this.add.rectangle(0, 0, w, h, 0x000000).setOrigin(0).setDepth(999);
-      this.add.text(w / 2, h / 2, 'FASE 2', { fontSize: '80px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(1000);
-      this.time.delayedCall(2000, () => { this.scene.start('Phase2Scene'); });
-    });
+  processSpawnQueue() {
+    if (this.isGameOver || this.isPaused) return;
+
+    if (this.spawnQueue.length === 0) {
+        this.isSpawningFinished = true; // Tarefa 2: Sinalizador de geração concluída
+        return;
+    }
+
+    const type = this.spawnQueue.shift();
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    switch (type) {
+        case 'flicker':
+            const fx = Phaser.Math.Between(w + 100, w + 800);
+            const fy = Phaser.Math.Between(100, h - 200);
+            const f = new Flicker(this, fx, fy);
+            this.flickers.add(f);
+            break;
+        case 'mushroom':
+            const side = Phaser.Math.Between(0, 1);
+            const mx = (side === 0) ? -100 : w + 100;
+            const m = new Mushroom(this, mx, h - 50);
+            this.mushrooms.add(m);
+            this.physics.add.collider(m, this.ground);
+            break;
+        case 'bee':
+            const b = new Bee(this, w + 100, Phaser.Math.Between(100, h - 300));
+            this.bees.add(b);
+            break;
+        case 'fruit':
+            const frX = Phaser.Math.Between(w + 100, w + 600);
+            const frY = Phaser.Math.Between(250, 400);
+            const frType = Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
+            const fr = new Fruit(this, frX, frY, frType);
+            this.fruits.add(fr);
+            break;
+        case 'coin':
+            const cX = Phaser.Math.Between(w + 100, w + 600);
+            const cY = Phaser.Math.Between(150, h - 150);
+            const c = new GoldCoin(this, cX, cY);
+            this.goldCoins.add(c);
+            break;
+    }
+
+    this.time.delayedCall(2000, () => this.processSpawnQueue());
+  }
+
+  checkRoundEnd() {
+    // Tarefa 4: Nova regra de avanço
+    if (this.isSpawningFinished && !this.isRoundTransitioning) {
+        // Tarefa 3 e 7: Verificador contínuo (ignora frutas e moedas)
+        const totalEnemies = this.flickers.countActive(true) + 
+                             this.mushrooms.countActive(true) + 
+                             this.bees.countActive(true);
+        
+        if (totalEnemies === 0) {
+            this.isRoundTransitioning = true; // Tarefa 5: Trava de segurança
+            
+            // Tarefa 6: O Descanso e o Próximo Round
+            this.time.delayedCall(3000, () => {
+                this.currentRound++;
+                this.startRound();
+            });
+        }
+    }
   }
 
   update(time, delta) {
@@ -234,53 +382,77 @@ export default class PlayScene extends Phaser.Scene {
         layer.sprite.tilePositionX += layer.speed * this.bgSpeedFactor; 
     });
 
-    if (this.isGameStarted) {
-      this.spawnMonsters(time, delta);
-      this.bird.update(this.cursors);
-      this.mushrooms.getChildren().forEach(m => m.update(this.bird, time, delta));
-      this.bees.getChildren().forEach(b => b.update(this.bird));
-      this.poops.getChildren().forEach(p => p.update());
-    } else {
-      this.bird.idleFloating(time);
+    if (this.bird) {
+        if (this.isGameStarted) {
+            this.bird.update(this.cursors);
+            this.checkRoundEnd(); // Verifica fim do round a cada frame
+        } else {
+            this.bird.idleFloating(time);
+        }
     }
+
+    this.mushrooms.getChildren().forEach(m => m.update(this.bird, time, delta));
+    this.bees.getChildren().forEach(b => b.update(this.bird));
+    this.flickers.getChildren().forEach(f => f.update());
+    this.coins.getChildren().forEach(c => c.update());
+    this.goldCoins.getChildren().forEach(c => c.update());
+    this.fruits.getChildren().forEach(f => f.update(time));
+    this.poops.getChildren().forEach(p => p.update());
   }
 
   createHeartsHUD() {
     const h = this.scale.height;
     this.hearts.forEach(h => h.destroy());
+    this.shieldIcons.forEach(s => s.destroy());
     this.hearts = [];
+    this.shieldIcons = [];
     for (let i = 0; i < 3; i++) {
-      // Posicionado no canto inferior esquerdo, na área do chão
       const heart = this.add.image(40 + (i * 45), h - 25, 'hearth').setScale(1).setDepth(500).setScrollFactor(0);
       this.hearts.push(heart);
     }
+    for (let i = 0; i < 3; i++) {
+      const shield = this.add.image(180 + (i * 35), h - 25, 'shield_icon').setScale(1.5).setDepth(500).setScrollFactor(0);
+      shield.setVisible(false);
+      this.shieldIcons.push(shield);
+    }
   }
 
-  updateHeartsHUD(lives) {
-    this.hearts.forEach((h, i) => h.setVisible(i < lives));
+  updateHeartsHUD(data) {
+    const lives = data.lives !== undefined ? data.lives : 3;
+    const shields = data.shields !== undefined ? data.shields : 0;
+    this.hearts.forEach((h, i) => {
+      h.setTexture(i < lives ? 'hearth' : 'hearth_dead');
+    });
+    this.shieldIcons.forEach((s, i) => {
+      s.setVisible(i < shields);
+    });
   }
 
   createAmmoHUD() {
     const h = this.scale.height;
-    // Posicionado logo após os corações
-    this.ammoIcon = this.add.image(200, h - 25, 'poop_icon').setScale(2).setDepth(500).setScrollFactor(0);
-    this.ammoText = this.add.text(225, h - 35, 'x 10', { fontSize: '24px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 3 }).setDepth(500).setScrollFactor(0);
+    this.ammoIcon = this.add.image(320, h - 25, 'poop_icon').setScale(2).setDepth(500).setScrollFactor(0);
+    this.ammoText = this.add.text(345, h - 35, 'x 10', { fontSize: '24px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 3 }).setDepth(500).setScrollFactor(0);
   }
 
   updateAmmoHUD(ammo) {
     if (this.ammoText) this.ammoText.setText('x ' + ammo);
   }
 
+  createShieldInventoryHUD() {
+    const h = this.scale.height;
+    this.shieldInvIcon = this.add.image(440, h - 25, 'shield_item_icon').setScale(1.5).setDepth(500).setScrollFactor(0);
+    this.shieldInvText = this.add.text(465, h - 35, 'x 0', { fontSize: '24px', fontFamily: 'KenneyPixel', fill: '#0ff', stroke: '#000', strokeThickness: 3 }).setDepth(500).setScrollFactor(0);
+  }
+
+  updateShieldInventoryHUD(count) {
+    if (this.shieldInvText) this.shieldInvText.setText('x ' + count);
+  }
+
   createProgressionHUD() {
     const w = this.scale.width;
     const h = this.scale.height;
-    // SCORE continua no canto superior esquerdo
     this.scoreText = this.add.text(40, 40, 'SCORE: 0', { fontSize: '32px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 4 }).setDepth(500).setScrollFactor(0);
-
-    // LEVEL no canto inferior direito
     this.levelText = this.add.text(w - 180, h - 35, 'LVL: 1', { fontSize: '28px', fontFamily: 'KenneyRocket', fill: '#fb0', stroke: '#000', strokeThickness: 3 }).setDepth(500).setScrollFactor(0);
-
-    // Barra de XP discretamente acima do LEVEL
     this.xpBarBg = this.add.rectangle(w - 200, h - 50, 160, 8, 0x333333).setOrigin(0, 0).setDepth(500).setScrollFactor(0);
     this.xpBar = this.add.rectangle(w - 200, h - 50, 0, 8, 0x00ff00).setOrigin(0, 0).setDepth(501).setScrollFactor(0);
   }

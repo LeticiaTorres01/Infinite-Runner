@@ -107,6 +107,7 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.mushrooms = this.add.group();
     this.bees = this.add.group();
+    this.flickers = this.add.group();
     this.poops = this.add.group();
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -121,6 +122,17 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.physics.add.overlap(this.poops, this.mushrooms, (poop, mushroom) => {
       if (!mushroom.isDead) { poop.destroy(); mushroom.takeDamage(); }
+    });
+
+    this.physics.add.overlap(this.poops, this.flickers, (poop, flicker) => {
+      if (!flicker.isDead) { poop.destroy(); flicker.takeDamage(); }
+    });
+
+    this.physics.add.overlap(this.bird, this.flickers, (bird, flicker) => {
+      if (!flicker.isDead && !bird.isDead) {
+        bird.takeDamage();
+        flicker.die();
+      }
     });
 
     this.createStartMenu(w, h);
@@ -149,18 +161,21 @@ export default class Phase2Scene extends Phaser.Scene {
   startCinematicIntro() {
     const h = this.scale.height;
     
-    // 1. Garante posição e visibilidade
+    // 1. Garante posição inicial fora da tela e visibilidade
     this.bird.setPosition(-150, h / 2);
     this.bird.setVisible(true);
-    if (this.bird.body) this.bird.body.enable = true; // Ativa a física agora
+    if (this.bird.body) this.bird.body.enable = true;
     
+    // 2. Voo suave para dentro do mapa (x: 150)
     this.tweens.add({
         targets: this.bird,
-        x: 100,
-        duration: 2500,
+        x: 150,
+        duration: 3000,
         ease: 'Power2.easeOut',
         onComplete: () => {
             this.isGameStarted = true;
+            this.bird.setCollideWorldBounds(true);
+
             this.tweens.add({
                 targets: [
                     ...this.hearts, 
@@ -177,23 +192,8 @@ export default class Phase2Scene extends Phaser.Scene {
   }
 
   spawnMonsters(time, delta) {
-    if (this.isBossSpawned || !this.isGameStarted || this.isGameOver || this.isPaused) return;
-
-    this.spawnTimer += delta;
-    if (this.spawnTimer > 2000) { 
-      this.spawnTimer = 0;
-      const w = this.scale.width;
-      const h = this.scale.height;
-
-      if (Phaser.Math.Between(0, 100) < 60) {
-        const m = new Mushroom(this, w + 100, h - 50);
-        this.mushrooms.add(m);
-        this.physics.add.collider(m, this.ground);
-      } else {
-        const b = new Bee(this, w + 100, Phaser.Math.Between(100, h - 200));
-        this.bees.add(b);
-      }
-    }
+    // Spawns desativados temporariamente
+    return;
   }
 
   startBossSequence() {
@@ -249,6 +249,7 @@ export default class Phase2Scene extends Phaser.Scene {
       this.bird.update(this.cursors);
       this.mushrooms.getChildren().forEach(m => m.update(this.bird, time, delta));
       this.bees.getChildren().forEach(b => b.update(this.bird));
+      this.flickers.getChildren().forEach(f => f.update());
       if (this.boss) this.boss.update(this.bird, time, delta);
       this.poops.getChildren().forEach(p => p.update());
     } else {

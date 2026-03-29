@@ -79,21 +79,19 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     this.isDashing = false;
 
     this.anims.stop();
-    this.setTexture('bee_hurt'); // Usa o sprite de Hurt
+    this.setTexture('bee_hurt'); 
     
     if (this.body) {
-      this.body.setAllowGravity(true); // Cai
+      this.body.setAllowGravity(true); 
       this.body.setGravityY(1000);
-      this.body.setVelocityX(-100); // Desliza com o cenário
-      this.body.checkCollision.none = true; // Atravessa tudo ao cair
+      this.body.setVelocityX(-100); 
+      this.body.checkCollision.none = true; 
     }
 
-    // Rotaciona para parecer que está caindo
     this.setAngle(180);
   }
 
   update(bird) {
-    // 1. Destruição se sair da tela (incluindo cair pelo fundo)
     if (this.x < -300 || this.x > this.scene.scale.width + 500 || this.y > this.scene.scale.height + 100) {
       this.destroy();
       return;
