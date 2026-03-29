@@ -34,7 +34,8 @@ export default class StoryScene extends Phaser.Scene {
     // --- LÓGICA DE PARALLAX ---
     const addLayer = (key, speed, isLight = false) => {
       const texture = this.textures.get(key);
-      const imgHeight = texture.getSourceImage().height || 512;
+      const img = texture ? texture.getSourceImage() : null;
+      const imgHeight = (img && img.height) ? img.height : 512;
       const sprite = this.add.tileSprite(0, h, w, imgHeight, key).setOrigin(0, 1);
       
       const scale = h / imgHeight;
@@ -114,11 +115,16 @@ export default class StoryScene extends Phaser.Scene {
     });
 
     // --- ENTRADA DE USUÁRIO ---
+    this.key1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
     this.input.keyboard.on('keydown-SPACE', () => this.startPlayScene());
     this.input.on('pointerdown', () => this.startPlayScene());
   }
 
   update() {
+    // Gatilho para testes
+    if (this.key1 && Phaser.Input.Keyboard.JustDown(this.key1)) {
+        this.startPlayScene();
+    }
     // Movimento Parallax
     this.bgLayers.forEach(layer => {
       layer.sprite.tilePositionX += layer.speed;
@@ -142,7 +148,7 @@ export default class StoryScene extends Phaser.Scene {
 
     this.cameras.main.fadeOut(1500, 0, 0, 0);
 
-    this.cameras.main.once('camerafadeoutcomplete', () => {
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start('PlayScene');
     });
   }

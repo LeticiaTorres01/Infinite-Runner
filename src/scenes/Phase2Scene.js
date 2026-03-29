@@ -8,23 +8,18 @@ import Fairy from '../objects/Fairy.js';
 import MagicProjectile from '../objects/MagicProjectile.js';
 import SwordBoss from '../objects/SwordBoss.js';
 
-export default class PlayScene extends Phaser.Scene {
+export default class Phase2Scene extends Phaser.Scene {
   constructor() {
-    super({ key: 'PlayScene' });
+    super({ key: 'Phase2Scene' });
     this.bgLayers = [];
     this.bird = null;
     this.boss = null;
     this.mushrooms = null;
     this.bees = null;
-    this.flickers = null;
-    this.oranges = null;
-    this.fairies = null;
-    this.magicProjectiles = null;
     this.poops = null;
     this.isGameStarted = false;
     this.isPaused = false;
     this.isGameOver = false;
-    this.isTransitioning = false;
     this.isBossSpawned = false;
     this.bgSpeedFactor = 1.0;
     this.spawnTimer = 0;
@@ -38,6 +33,7 @@ export default class PlayScene extends Phaser.Scene {
     Flicker.preload(this);
     Orange.preload(this);
     Fairy.preload(this);
+    SwordBoss.preload(this);
     this.load.image('hearth', 'assets/hearth.png');
     this.load.image('poop_icon', 'assets/item1193.png');
     this.load.image('ceu_sombrio', 'assets/ceu_sombrio.jpg');
@@ -57,7 +53,6 @@ export default class PlayScene extends Phaser.Scene {
     this.isGameStarted = false;
     this.isPaused = false;
     this.isGameOver = false;
-    this.isTransitioning = false;
     this.isBossSpawned = false;
     this.bgSpeedFactor = 1.0;
     this.spawnTimer = 0;
@@ -73,6 +68,7 @@ export default class PlayScene extends Phaser.Scene {
     Flicker.createAnimations(this);
     Orange.createAnimations(this);
     Fairy.createAnimations(this);
+    SwordBoss.createAnimations(this);
 
     const addLayer = (key, speed, isLight = false) => {
       const texture = this.textures.get(key);
@@ -80,11 +76,11 @@ export default class PlayScene extends Phaser.Scene {
       const imgHeight = (img && img.height) ? img.height : 512;
       const sprite = this.add.tileSprite(0, h, w, imgHeight, key).setOrigin(0, 1);
       const scale = h / imgHeight;
-      sprite.setScale(scale);
+      sprite.setScale(scale).setTint(0x7755aa); 
       sprite.width = w / scale;
       if (isLight) {
         sprite.setBlendMode(Phaser.BlendModes.ADD);
-        sprite.setAlpha(0.4);
+        sprite.setAlpha(0.3);
       }
       this.bgLayers.push({ sprite: sprite, speed: speed });
     };
@@ -107,9 +103,6 @@ export default class PlayScene extends Phaser.Scene {
 
     this.bird = new Bird(this, 100, h / 2);
     this.bird.setDepth(50);
-    this.physics.add.collider(this.bird, this.ground, () => {
-      if (!this.bird.isDead) this.bird.takeDamage();
-    });
 
     this.mushrooms = this.add.group();
     this.bees = this.add.group();
@@ -118,14 +111,14 @@ export default class PlayScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.key1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
+    this.keyB = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
 
     this.createHeartsHUD();
     this.createAmmoHUD();
-    this.createProgressionHUD();
 
-    this.events.on('updateLives', (lives) => this.updateHeartsHUD(lives));
-    this.events.on('updateAmmo', (ammo) => this.updateAmmoHUD(ammo));
-    this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
+    this.physics.add.collider(this.bird, this.ground, () => {
+      if (!this.bird.isDead) this.bird.takeDamage();
+    });
 
     this.physics.add.overlap(this.poops, this.mushrooms, (poop, mushroom) => {
       if (!mushroom.isDead) { poop.destroy(); mushroom.takeDamage(); }
@@ -134,18 +127,22 @@ export default class PlayScene extends Phaser.Scene {
     this.createStartMenu(w, h);
     this.createPauseMenu(w, h);
     this.createGameOverMenu(w, h);
+
+    this.cameras.main.fadeIn(1000, 0, 0, 0);
+    
+    this.add.text(w/2, 100, "FASE 2 - O VAZIO", { fontSize: '40px', fontFamily: 'KenneyRocket', fill: '#f0f' }).setOrigin(0.5).setDepth(600);
   }
 
   spawnMonsters(time, delta) {
     if (this.isBossSpawned || !this.isGameStarted || this.isGameOver || this.isPaused) return;
 
     this.spawnTimer += delta;
-    if (this.spawnTimer > 2500) { 
+    if (this.spawnTimer > 2000) { 
       this.spawnTimer = 0;
       const w = this.scale.width;
       const h = this.scale.height;
 
-      if (Phaser.Math.Between(0, 100) < 70) {
+      if (Phaser.Math.Between(0, 100) < 60) {
         const m = new Mushroom(this, w + 100, h - 50);
         this.mushrooms.add(m);
         this.physics.add.collider(m, this.ground);
@@ -156,22 +153,49 @@ export default class PlayScene extends Phaser.Scene {
     }
   }
 
-  startTransitionToPhase2() {
-    if (this.isTransitioning) return;
-    this.isTransitioning = true;
-    this.cameras.main.fadeOut(1000, 0, 0, 0);
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      const w = this.scale.width;
-      const h = this.scale.height;
-      this.add.rectangle(0, 0, w, h, 0x000000).setOrigin(0).setDepth(999);
-      this.add.text(w / 2, h / 2, 'FASE 2', { fontSize: '80px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(1000);
-      this.time.delayedCall(2000, () => { this.scene.start('Phase2Scene'); });
+  startBossSequence() {
+    if (this.isBossSpawned) return;
+    this.isBossSpawned = true;
+
+    // Para o cenário suavemente
+    this.tweens.add({
+      targets: this,
+      bgSpeedFactor: 0,
+      duration: 3000,
+      ease: 'Power2',
+      onComplete: () => {
+        this.spawnBoss();
+      }
+    });
+  }
+
+  spawnBoss() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    this.boss = new SwordBoss(this, w / 2, h / 2);
+    this.physics.add.collider(this.boss, this.ground);
+    this.physics.add.overlap(this.bird, this.boss, (bird, boss) => {
+        if (!bird.isDead && !boss.isDead && (boss.anims.currentAnim.key === 'boss_spin_attack' || boss.anims.currentAnim.key === 'boss_heavy_attack')) {
+            bird.takeDamage();
+        }
+    });
+    this.physics.add.overlap(this.poops, this.boss, (poop, boss) => {
+        if (!boss.isDead) {
+            poop.destroy();
+            boss.takeDamage();
+        }
     });
   }
 
   update(time, delta) {
     if (this.isGameOver) return;
-    if (this.key1 && Phaser.Input.Keyboard.JustDown(this.key1)) this.startTransitionToPhase2();
+    if (this.key1 && Phaser.Input.Keyboard.JustDown(this.key1)) {
+        this.cameras.main.fadeOut(1000, 0, 0, 0);
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => { this.scene.start('CreditsScene'); });
+    }
+    if (this.keyB && Phaser.Input.Keyboard.JustDown(this.keyB)) {
+        this.startBossSequence();
+    }
     if (this.pauseKey && Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.togglePause();
     if (this.isPaused) return;
 
@@ -189,6 +213,7 @@ export default class PlayScene extends Phaser.Scene {
       this.bird.update(this.cursors);
       this.mushrooms.getChildren().forEach(m => m.update(this.bird, time, delta));
       this.bees.getChildren().forEach(b => b.update(this.bird));
+      if (this.boss) this.boss.update(this.bird, time, delta);
       this.poops.getChildren().forEach(p => p.update());
     } else {
       this.bird.idleFloating(time);
@@ -203,33 +228,17 @@ export default class PlayScene extends Phaser.Scene {
       this.hearts.push(heart);
     }
   }
-
   updateHeartsHUD(lives) { this.hearts.forEach((h, i) => h.setVisible(i < lives)); }
-
   createAmmoHUD() {
     this.add.image(40, 85, 'poop_icon').setScale(2).setDepth(500).setScrollFactor(0);
     this.ammoText = this.add.text(65, 75, 'x 10', { fontSize: '24px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 3 }).setDepth(500).setScrollFactor(0);
   }
-
   updateAmmoHUD(ammo) { if (this.ammoText) this.ammoText.setText('x ' + ammo); }
-
-  createProgressionHUD() {
-    this.scoreText = this.add.text(40, 115, 'SCORE: 0', { fontSize: '32px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 4 }).setDepth(500).setScrollFactor(0);
-    this.levelText = this.add.text(40, 150, 'LVL: 1', { fontSize: '28px', fontFamily: 'KenneyRocket', fill: '#fb0', stroke: '#000', strokeThickness: 3 }).setDepth(500).setScrollFactor(0);
-    this.xpBarBg = this.add.rectangle(40, 185, 200, 15, 0x333333).setOrigin(0, 0).setDepth(500).setScrollFactor(0);
-    this.xpBar = this.add.rectangle(40, 185, 0, 15, 0x00ff00).setOrigin(0, 0).setDepth(501).setScrollFactor(0);
-  }
-
-  updateProgressionHUD(data) {
-    if (this.scoreText) this.scoreText.setText('SCORE: ' + data.score);
-    if (this.levelText) this.levelText.setText('LVL: ' + data.level);
-    this.xpBar.width = 200 * (data.xp / data.xpNextLevel);
-  }
 
   createStartMenu(w, h) {
     this.startGroup = this.add.group();
-    const titleText = this.add.text(w / 2, h / 2 - 100, 'TORI-TORI', { fontSize: '120px', fontFamily: 'KenneyRocket', fill: '#fff', stroke: '#000', strokeThickness: 10 }).setOrigin(0.5).setDepth(100);
-    const startBtn = this.add.text(w / 2, h / 2 + 50, 'PRESS START', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#2e3b4e', padding: { x: 30, y: 15 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(100);
+    const titleText = this.add.text(w / 2, h / 2 - 100, 'FASE 2', { fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(100);
+    const startBtn = this.add.text(w / 2, h / 2 + 50, 'INICIAR TESTE', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#330066', padding: { x: 30, y: 15 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(100);
     this.startGroup.add(titleText); this.startGroup.add(startBtn);
     startBtn.on('pointerdown', () => { this.isGameStarted = true; this.startGroup.clear(true, true); });
   }
