@@ -16,18 +16,32 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(27, 29);
     }
 
-    this.play('mushroom_run_anim');
     this.hp = 2;
     this.xpValue = 20;
     this.scoreValue = 100;
     this.isDead = false;
     
-    const centerX = scene.scale.width / 2;
-    this.jumpDirection = (x < centerX) ? 1 : -1;
-    this.setFlipX(this.jumpDirection === 1);
+    // Estados: 'WALKING', 'JUMPING', 'STUNNED'
+    this.currentState = 'WALKING';
     
-    this.jumpPowerY = -600;
-    this.jumpPowerX = 200 * this.jumpDirection;
+    const centerX = scene.scale.width / 2;
+    this.direction = (x < centerX) ? 1 : -1;
+    this.setFlipX(this.direction === 1);
+    
+    this.walkSpeed = 150;
+    this.jumpPowerY = -900; 
+    this.jumpPowerX = 180;
+    
+    this.walkTimer = 0;
+    this.walkDuration = 1500; 
+    this.stunTimer = 0;
+    this.stunDuration = 1000;
+
+    // Persistência: Quantas vezes ele vai "bater" nas bordas antes de sair definitivamente
+    this.maxBounces = 2; 
+    this.bounceCount = 0;
+
+    this.play('mushroom_run_anim');
   }
 
   static preload(scene) {
@@ -46,19 +60,21 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
         scene.anims.create({ key: 'mushroom_attack_anim', frames: scene.anims.generateFrameNumbers('mushroom_attack', { start: 0, end: 9 }), frameRate: 15, repeat: 0 });
         scene.anims.create({ key: 'mushroom_die_anim', frames: scene.anims.generateFrameNumbers('mushroom_die', { start: 0, end: 14 }), frameRate: 15, repeat: 0 });
         scene.anims.create({ key: 'mushroom_hit_anim', frames: scene.anims.generateFrameNumbers('mushroom_hit', { start: 0, end: 4 }), frameRate: 15, repeat: 0 });
-        scene.anims.create({ key: 'mushroom_stun_anim', frames: scene.anims.generateFrameNumbers('mushroom_stun', { start: 0, end: 17 }), frameRate: 12, repeat: -1 });
+        scene.anims.create({ key: 'mushroom_stun_anim', frames: scene.anims.generateFrameNumbers('mushroom_stun', { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
     }
   }
 
   takeDamage() {
     if (!this.active || this.isDead) return;
+    
     this.hp--;
-    if (this.hp <= 0) this.die();
-    else {
-        this.play('mushroom_hit_anim');
-        this.once('animationcomplete-mushroom_hit_anim', () => {
-            if (!this.isDead) this.play('mushroom_run_anim');
-        });
+    if (this.hp <= 0) {
+        this.die();
+    } else {
+        this.currentState = 'STUNNED';
+        this.stunTimer = this.stunDuration;
+        this.body.setVelocityX(0);
+        this.play('mushroom_stun_anim');
     }
   }
 
@@ -66,14 +82,62 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
     if (!this.active || this.isDead) return;
 
     const onGround = this.body && (this.body.blocked.down || this.body.touching.down);
+    const screenWidth = this.scene.scale.width;
 
-    if (onGround) {
-        this.body.setVelocityY(this.jumpPowerY);
-        this.body.setVelocityX(this.jumpPowerX);
-        this.play('mushroom_attack_anim');
+    // Lógica de mudança de direção ao atingir bordas da tela
+    if (this.bounceCount < this.maxBounces) {
+        if (this.x < 100 && this.direction === -1) {
+            this.direction = 1;
+            this.bounceCount++;
+            this.setFlipX(true);
+        } else if (this.x > screenWidth - 100 && this.direction === 1) {
+            this.direction = -1;
+            this.bounceCount++;
+            this.setFlipX(false);
+        }
     }
 
-    if (this.x < -500 || this.x > this.scene.scale.width + 500) {
+    switch (this.currentState) {
+        case 'STUNNED':
+            this.stunTimer -= delta;
+            if (this.stunTimer <= 0) {
+                this.currentState = 'WALKING';
+                this.walkTimer = this.walkDuration;
+                this.play('mushroom_run_anim');
+            }
+            break;
+
+        case 'WALKING':
+            if (onGround) {
+                this.body.setVelocityX(this.walkSpeed * this.direction);
+                if (this.anims.currentAnim && this.anims.currentAnim.key !== 'mushroom_run_anim') {
+                    this.play('mushroom_run_anim');
+                }
+            }
+            
+            this.walkTimer -= delta;
+            if (this.walkTimer <= 0 && onGround) {
+                this.currentState = 'JUMPING';
+                this.body.setVelocityY(this.jumpPowerY);
+                this.body.setVelocityX(this.jumpPowerX * this.direction);
+                this.play('mushroom_attack_anim');
+            }
+            break;
+
+        case 'JUMPING':
+            // Mantém movimento horizontal no ar
+            this.body.setVelocityX(this.jumpPowerX * this.direction);
+
+            if (onGround && this.body.velocity.y >= 0) {
+                this.currentState = 'WALKING';
+                this.walkTimer = this.walkDuration;
+                this.body.setVelocityX(this.walkSpeed * this.direction);
+                this.play('mushroom_run_anim');
+            }
+            break;
+    }
+
+    if (this.x < -1000 || this.x > screenWidth + 1000) {
       this.destroy();
     }
   }

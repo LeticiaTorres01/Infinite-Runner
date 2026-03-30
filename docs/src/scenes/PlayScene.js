@@ -180,6 +180,12 @@ export default class PlayScene extends Phaser.Scene {
       }
     });
 
+    this.physics.add.overlap(this.bird, this.mushrooms, (bird, mushroom) => {
+      if (!mushroom.isDead && !bird.isDead) {
+        bird.takeDamage();
+      }
+    });
+
     this.physics.add.overlap(this.bird, this.coins, (bird, coin) => {
         if (!bird.isDead && !coin.isCollected) {
             coin.collect();
@@ -345,7 +351,7 @@ export default class PlayScene extends Phaser.Scene {
             break;
     }
 
-    this.time.delayedCall(2000, () => this.processSpawnQueue());
+    this.time.delayedCall(3500, () => this.processSpawnQueue());
   }
 
   checkRoundEnd() {
