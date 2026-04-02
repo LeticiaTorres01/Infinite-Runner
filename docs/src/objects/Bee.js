@@ -16,6 +16,7 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
 
     this.play('bee_fly_anim');
     
+    this.hp = 1;
     this.directionX = -1; 
     this.baseSpeed = 150; 
     this.circleSpeed = 0.005; 
@@ -48,6 +49,14 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
         frameRate: 1,
         repeat: -1
       });
+    }
+  }
+
+  takeDamage() {
+    if (this.isDead) return;
+    this.hp--;
+    if (this.hp <= 0) {
+      this.die();
     }
   }
 
