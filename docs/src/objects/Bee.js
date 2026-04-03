@@ -32,6 +32,22 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     this.comboCount = 0; // Conta os rasantes da abelha evoluída
   }
 
+  upgrade() {
+    this.isUpgraded = true;
+    
+    // Adiciona uma Aura Vermelha
+    this.glowFX = this.preFX.addGlow(0xff0000, 2, 0, false, 0.1, 10);
+    
+    // Tween para fazer a aura piscar rápido (frenesi)
+    this.scene.tweens.add({
+        targets: this.glowFX,
+        outerStrength: 8,
+        duration: 150, // Pisca bem rápido
+        yoyo: true,
+        repeat: -1
+    });
+  }
+
   static preload(scene) {
     scene.load.spritesheet('bee_fly', 'assets/Flying_(32 x 32).png', { frameWidth: 32, frameHeight: 32 });
     scene.load.spritesheet('bee_hurt', 'assets/Hurt_(32 x 32).png', { frameWidth: 32, frameHeight: 32 });
@@ -57,9 +73,9 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  takeDamage() {
+  takeDamage(amount = 1) {
     if (this.isDead) return;
-    this.hp--;
+    this.hp -= amount;
     if (this.hp <= 0) {
       this.die();
     }
@@ -72,7 +88,7 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     this.play('bee_attack_anim');
 
     // Se já atacou 7 vezes, a 8ª investida é suicida (foge da tela)
-    if (this.attackCount >= 7) {
+    if (this.attackCount >= 9) {
         this.isSuicideDash = true;
     }
 
@@ -109,7 +125,7 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
                 this.nextAttackTime = this.scene.time.now + 2000;
             } else {
                 // Prepara imediatamente o próximo rasante do combo (pausa curta)
-                this.nextAttackTime = this.scene.time.now + 250; 
+                this.nextAttackTime = this.scene.time.now + 500; 
             }
         } else {
             // Abelha normal: pausa longa padrão

@@ -41,31 +41,31 @@ export default class PlayScene extends Phaser.Scene {
     this.roundRecipes = [
         // --- INTRODUÇÃO (Apresentação espaçada) ---
         // Round 1: Apenas os Flickers (obstáculos estáticos). Tempo longo para o jogador se acostumar com o voo.
-        { round: 1, flickers: 4, mushrooms: 0, bees: 0, fruits: 2, coins: 2, spawnDelay: 3500 },
+        { round: 1, flickers: 6, mushrooms: 0, bees: 0, oranges: 0, fruits: 7, coins: 2, spawnDelay: 3500 },
         // Round 2: Apenas Cogumelos. Ensina que o perigo vem de baixo.
-        { round: 2, flickers: 0, mushrooms: 5, bees: 0, fruits: 2, coins: 2, spawnDelay: 3200 },
+        { round: 2, flickers: 0, mushrooms: 6, bees: 0, fruits: 8, coins: 2, spawnDelay: 3200 },
         // Round 3: Apenas Abelhas. Ensina a mecânica de investida (dash) vinda do alto.
-        { round: 3, flickers: 0, mushrooms: 0, bees: 4, fruits: 3, coins: 3, spawnDelay: 3000 },
+        { round: 3, flickers: 0, mushrooms: 0, bees: 4, fruits: 2, coins: 3, spawnDelay: 3000 },
 
         // --- SINERGIA (Misturando os perigos) ---
         // Round 4: Parede estática + Puladores.
-        { round: 4, flickers: 4, mushrooms: 4, bees: 0, fruits: 3, coins: 3, spawnDelay: 2500 },
+        { round: 4, flickers: 4, mushrooms: 4, bees: 0, fruits: 7, coins: 3, spawnDelay: 2500 },
         // Round 5: O Ataque aéreo e terrestre (O jogador precisa ficar no meio da tela).
-        { round: 5, flickers: 0, mushrooms: 4, bees: 4, fruits: 4, coins: 4, spawnDelay: 2200 },
+        { round: 5, flickers: 0, mushrooms: 4, bees: 4, fruits: 7, coins: 4, spawnDelay: 2200 },
         // Round 6: O Trio. Todos os monstros aparecem juntos pela primeira vez.
-        { round: 6, flickers: 3, mushrooms: 3, bees: 3, fruits: 4, coins: 5, spawnDelay: 2000 },
+        { round: 6, flickers: 3, mushrooms: 3, bees: 3, fruits: 7, coins: 5, spawnDelay: 2000 },
 
         // --- PRESSÃO (Obriga o uso de tiros/cocô para abrir caminho) ---
         // Round 7: Foco em barreira terrestre forte com suporte aéreo.
-        { round: 7, flickers: 5, mushrooms: 6, bees: 3, fruits: 5, coins: 6, spawnDelay: 1600 },
+        { round: 7, flickers: 5, mushrooms: 6, bees: 3, fruits: 8, coins: 6, spawnDelay: 1600 },
         // Round 8: Foco em enxame aéreo forte com obstáculos terrestres.
-        { round: 8, flickers: 5, mushrooms: 3, bees: 6, fruits: 5, coins: 6, spawnDelay: 1400 },
+        { round: 8, flickers: 5, mushrooms: 3, bees: 6, fruits: 9, coins: 6, spawnDelay: 1400 },
         // Round 9: Pré-Clímax. Caos equilibrado.
-        { round: 9, flickers: 6, mushrooms: 6, bees: 6, fruits: 6, coins: 8, spawnDelay: 1100 },
+        { round: 9, flickers: 6, mushrooms: 6, bees: 6, fruits: 9, coins: 8, spawnDelay: 1100 },
 
         // --- CLÍMAX (Teste de Sobrevivência) ---
         // Round 10: O limite da Fase 1. Spawns extremamente rápidos, tela cheia.
-        { round: 10, flickers: 8, mushrooms: 8, bees: 8, fruits: 8, coins: 10, spawnDelay: 800 }
+        { round: 10, flickers: 8, mushrooms: 8, bees: 8, fruits: 9, coins: 10, spawnDelay: 800 }
     ];
   }
 
@@ -128,11 +128,12 @@ export default class PlayScene extends Phaser.Scene {
 
     this.mushrooms = this.add.group(); this.bees = this.add.group(); this.flickers = this.add.group();
     this.coins = this.add.group(); this.goldCoins = this.add.group(); this.fruits = this.add.group();
-    this.poops = this.add.group();
+    this.poops = this.add.group(); this.oranges = this.add.group();
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
+    this.xpDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
 
     this.createHeartsHUD();
     this.createAmmoHUD();
@@ -143,13 +144,28 @@ export default class PlayScene extends Phaser.Scene {
     this.events.on('updateAmmo', (ammo) => this.updateAmmoHUD(ammo));
     this.events.on('updateStoredShields', (count) => this.updateShieldInventoryHUD(count));
     this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
+    this.events.on('updateMaxLives', (maxLives) => this.rebuildHeartsHUD(maxLives));
 
     this.physics.add.overlap(this.poops, this.mushrooms, (poop, mushroom) => { if (!mushroom.isDead) { poop.destroy(); mushroom.takeDamage(); } });
     this.physics.add.overlap(this.poops, this.flickers, (poop, flicker) => { if (!flicker.isDead) { poop.destroy(); flicker.takeDamage(); } });
     this.physics.add.overlap(this.poops, this.bees, (poop, bee) => { if (!bee.isDead) { poop.destroy(); bee.takeDamage(); } });
+    this.physics.add.overlap(this.poops, this.oranges, (poop, orange) => { if (!orange.isDead) { poop.destroy(); orange.takeDamage(); } });
     this.physics.add.overlap(this.bird, this.flickers, (bird, flicker) => { if (!flicker.isDead && !bird.isDead) { bird.takeDamage(); flicker.die(); } });
     this.physics.add.overlap(this.bird, this.bees, (bird, bee) => { if (!bee.isDead && !bird.isDead) { bird.takeDamage(); bee.die(); } });
     this.physics.add.overlap(this.bird, this.mushrooms, (bird, mushroom) => { if (!mushroom.isDead && !bird.isDead) { bird.takeDamage(); } });
+    this.physics.add.overlap(this.bird, this.oranges, (bird, orange) => { if (!orange.isDead && !bird.isDead) { bird.takeDamage(); } });
+
+    // Colisor para o Tori causar dano nos inimigos durante o dash
+    this.physics.add.overlap(this.bird, this.mushrooms, (bird, enemy) => {
+        if (bird.isDashing && !enemy.isDead) {
+            enemy.takeDamage(bird.dashDamage);
+        }
+    });
+    this.physics.add.overlap(this.bird, this.bees, (bird, enemy) => {
+        if (bird.isDashing && !enemy.isDead) {
+            enemy.takeDamage(bird.dashDamage);
+        }
+    });
 
     this.physics.add.overlap(this.bird, this.coins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(); bird.collectShieldItem(); bird.gainExperience(5, 50); } });
     this.physics.add.overlap(this.bird, this.goldCoins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(bird); } });
@@ -197,6 +213,7 @@ export default class PlayScene extends Phaser.Scene {
     for (let i = 0; i < recipe.flickers; i++) this.spawnQueue.push('flicker');
     for (let i = 0; i < recipe.mushrooms; i++) this.spawnQueue.push('mushroom');
     for (let i = 0; i < recipe.bees; i++) this.spawnQueue.push('bee');
+    for (let i = 0; i < (recipe.oranges || 0); i++) this.spawnQueue.push('orange');
     for (let i = 0; i < recipe.fruits; i++) this.spawnQueue.push('fruit');
     for (let i = 0; i < recipe.coins; i++) this.spawnQueue.push('coin');
     Phaser.Utils.Array.Shuffle(this.spawnQueue); this.processSpawnQueue();
@@ -208,21 +225,42 @@ export default class PlayScene extends Phaser.Scene {
     
     const type = this.spawnQueue.shift(); const w = 1920; const h = 1080;
     switch (type) {
-        case 'flicker': this.flickers.add(new Flicker(this, w + 200, Phaser.Math.Between(200, h - 300))); break;
+        case 'flicker':
+            const fx = Phaser.Math.Between(w + 100, w + 800);
+            const fy = Phaser.Math.Between(100, h - 200);
+            const f = new Flicker(this, fx, fy);
+            
+            // Upgrade no Round 6+
+            if (this.currentRound >= 6) f.upgrade();
+            
+            this.flickers.add(f);
+            break;
         case 'mushroom':
             const mx = (Phaser.Math.Between(0, 1) === 0) ? -200 : w + 200;
-            const m = new Mushroom(this, mx, h - 100); this.mushrooms.add(m); this.physics.add.collider(m, this.ground); break;
+            const m = new Mushroom(this, mx, h - 100);
+            
+            // Lógica de Upgrade: Maior que o turno 3
+            if (this.currentRound > 3) {
+                m.upgrade();
+            }
+            
+            this.mushrooms.add(m);
+            this.physics.add.collider(m, this.ground);
+            break;
         case 'bee':
             const b = new Bee(this, w + 100, Phaser.Math.Between(100, h - 300));
-
+            
             // Lógica de Upgrade: Round 7 ou superior
             if (this.currentRound >= 7) {
-                b.isUpgraded = true;
-                b.setTint(0xff5555); // Pinta de avermelhado para o jogador identificar o perigo
+                b.upgrade(); // Substitui a atribuição manual e o setTint
             }
-
+            
             this.bees.add(b);
-            break;        case 'fruit': this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']))); break;
+            break;
+        case 'orange':
+            const ox = (Phaser.Math.Between(0, 1) === 0) ? -200 : w + 200;
+            const o = new Orange(this, ox, h - 100); this.oranges.add(o); this.physics.add.collider(o, this.ground); break;
+        case 'fruit': this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']))); break;
         case 'coin': this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); break;
     }
 
@@ -235,7 +273,14 @@ export default class PlayScene extends Phaser.Scene {
 
   checkRoundEnd() {
     if (this.isSpawningFinished && !this.isRoundTransitioning) {
-        if (this.flickers.countActive(true) + this.mushrooms.countActive(true) + this.bees.countActive(true) === 0) {
+        if (this.flickers.countActive(true) + this.mushrooms.countActive(true) + this.bees.countActive(true) + this.oranges.countActive(true) === 0) {
+            
+            // Adiciona uma Blue Coin no final do Round 7
+            if (this.currentRound === 7) {
+                const w = 1920; const h = 1080;
+                this.coins.add(new BlueCoin(this, w + 200, h / 2));
+            }
+
             this.isRoundTransitioning = true; 
             
             this.time.delayedCall(3000, () => { 
@@ -266,7 +311,7 @@ export default class PlayScene extends Phaser.Scene {
 
   debugSkipRound() {
     this.spawnQueue = []; this.isSpawningFinished = true;
-    this.flickers.getChildren().forEach(f => f.die()); this.mushrooms.getChildren().forEach(m => m.die()); this.bees.getChildren().forEach(b => b.die());
+    this.flickers.getChildren().forEach(f => f.die()); this.mushrooms.getChildren().forEach(m => m.die()); this.bees.getChildren().forEach(b => b.die()); this.oranges.getChildren().forEach(o => o.die());
   }
 
   update(time, delta) {
@@ -274,12 +319,14 @@ export default class PlayScene extends Phaser.Scene {
     if (this.pauseKey && Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.togglePause();
     if (this.isPaused) return;
     if (Phaser.Input.Keyboard.JustDown(this.debugKey)) this.debugSkipRound();
+    if (this.xpDebugKey && Phaser.Input.Keyboard.JustDown(this.xpDebugKey) && this.bird) this.bird.gainExperience(100, 0);
     if (this.bird && this.bird.isDead) { if (this.bird.y > 1080 + 100) { this.isGameOver = true; this.gameOverGroup.setVisible(true); } return; }
     this.bgLayers.forEach(layer => { layer.sprite.tilePositionX += layer.speed * this.bgSpeedFactor; });
     if (this.bird) { if (this.isGameStarted) { this.bird.update(this.cursors); this.checkRoundEnd(); } else { this.bird.idleFloating(time); } }
     this.mushrooms.getChildren().forEach(m => m.update(this.bird, time, delta));
     this.bees.getChildren().forEach(b => b.update(this.bird));
-    this.flickers.getChildren().forEach(f => f.update());
+    this.flickers.getChildren().forEach(f => f.update(this.bird));
+    this.oranges.getChildren().forEach(o => o.update(this.bird, time, delta));
     this.coins.getChildren().forEach(c => c.update());
     this.goldCoins.getChildren().forEach(c => c.update());
     this.fruits.getChildren().forEach(f => f.update(time));
@@ -291,6 +338,22 @@ export default class PlayScene extends Phaser.Scene {
     this.hearts = []; this.shieldIcons = []; const iconY = h - 30;
     for (let i = 0; i < 3; i++) { const heart = this.add.image(80 + (i * 65), iconY, 'hearth').setScale(1.5).setDepth(500).setScrollFactor(0); this.hearts.push(heart); }
     for (let i = 0; i < 3; i++) { const shield = this.add.image(300 + (i * 55), iconY, 'shield_icon').setScale(2).setDepth(500).setScrollFactor(0); shield.setVisible(false); this.shieldIcons.push(shield); }
+  }
+
+  rebuildHeartsHUD(maxLives) {
+    const h = this.scale.height;
+    this.hearts.forEach(h => h.destroy());
+    this.hearts = [];
+    
+    // Agora desenha os corações com base no maxLives, não mais em '3' fixo
+    for (let i = 0; i < maxLives; i++) {
+      const heart = this.add.image(40 + (i * 45), h - 25, 'hearth').setScale(1).setDepth(500).setScrollFactor(0);
+      this.hearts.push(heart);
+    }
+    // Força a atualização visual para mostrar cheios/vazios corretamente
+    if (this.bird) {
+        this.updateHeartsHUD({ lives: this.bird.lives, shields: this.bird.shields });
+    }
   }
 
   updateHeartsHUD(data) {

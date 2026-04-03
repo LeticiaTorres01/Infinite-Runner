@@ -21,6 +21,28 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
     this.xpValue = 5;
     this.scoreValue = 50;
     this.isDead = false;
+
+    this.isUpgraded = false;
+    this.detectionRadius = 290; // Distância 'X' em pixels que ele enxerga o pássaro
+    this.chaseSpeed = 160; // Velocidade lenta de perseguição
+  }
+
+  upgrade() {
+    this.isUpgraded = true;
+    this.hp = 2;
+    
+    // Aura Roxa Fantasmagórica
+    this.glowFX = this.preFX.addGlow(0x9900ff, 4, 0, false, 0.1, 10);
+    
+    // Tween de pulsação lenta e sombria
+    this.scene.tweens.add({
+        targets: this.glowFX,
+        outerStrength: 15, // Expande bastante
+        duration: 1200,    // Movimento lento de respiração
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+    });
   }
 
   static preload(scene) {
@@ -56,9 +78,9 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  takeDamage() {
+  takeDamage(amount = 1) {
     if (this.isDead) return;
-    this.hp--;
+    this.hp -= amount;
     if (this.hp <= 0) {
       this.die();
     } else {
@@ -66,16 +88,40 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  update() {
+  update(bird) {
     if (this.x < -100) {
       this.destroy();
       return;
     }
 
     if (this.scene.isPaused || this.scene.isGameOver) {
-      if (this.body) this.body.setVelocityX(0);
-    } else {
-      if (this.body && !this.isDead) this.body.setVelocityX(-200);
+      if (this.body) {
+          this.body.setVelocityX(0);
+          this.body.setVelocityY(0);
+      }
+      return;
+    }
+
+    if (this.body && !this.isDead) {
+      // Lógica de perseguição do Flicker Evoluído
+      if (this.isUpgraded && bird && !bird.isDead) {
+          const distance = Phaser.Math.Distance.Between(this.x, this.y, bird.x, bird.y);
+          
+          if (distance < this.detectionRadius) {
+              // Pássaro muito perto: Move na direção do pássaro lentamente
+              const angle = Phaser.Math.Angle.Between(this.x, this.y, bird.x, bird.y);
+              this.body.setVelocityX(Math.cos(angle) * this.chaseSpeed);
+              this.body.setVelocityY(Math.sin(angle) * this.chaseSpeed);
+          } else {
+              // Fora da distância: Voa reto para a esquerda normalmente
+              this.body.setVelocityX(-250); // Levemente mais rápido que o Flicker normal
+              this.body.setVelocityY(0);
+          }
+      } else {
+          // Flicker Normal (Sempre reto)
+          this.body.setVelocityX(-200);
+          this.body.setVelocityY(0);
+      }
     }
   }
 

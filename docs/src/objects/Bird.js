@@ -6,7 +6,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setScale(3); 
+    this.setScale(4); 
 
     if (this.body) {
       this.body.setAllowGravity(false);
@@ -18,9 +18,30 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     
     // SISTEMA DE VIDAS
     this.lives = 3;
+    this.maxLives = 3; // Limite dinâmico que cresce com o level
+
+    // PALETA DE OURO (Branco -> Dourado Forte)
+    this.goldPalette = [
+        0xFFFFFF, 0xFEF9E4, 0xFEF4CA, 0xFEEEB1, 0xFDE997, 
+        0xFDE37D, 0xFDDE63, 0xFDD949, 0xFCD330, 0xFCCE16
+    ];
+    this.isMaxLevelGlow = false;
+    this.glowStep = 0; 
+    
+    // Cria uma Aura FX nativa do Phaser (Cor, Força Externa, Força Interna)
+    // Começa invisível (Força 0)
+    this.auraFX = this.preFX.addGlow(0xFFFFFF, 0, 0, false, 0.1, 10);
+
     this.isInvincible = false;
     this.shields = 0; 
     this.storedShields = 0; // Novo: contador de escudos guardados
+
+    // HABILIDADE DE DASH/ATAQUE ESPECIAL
+    this.canDash = false; // Ativado no Level 3
+    this.isDashing = false;
+    this.dashDamage = 1; // Começa com 1 no Level 3
+    this.dashAnimationRow = 7; // Começa com a linha 7 do spritesheet 06.png
+    this.dashKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
     // ESCUDO VISUAL
     this.shieldSprite = scene.add.sprite(x, y, 'electric_shield');
@@ -50,6 +71,10 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
       frameWidth: 16, 
       frameHeight: 16 
     });
+    scene.load.spritesheet('bird_dash', 'assets/06.png', {
+      frameWidth: 64,
+      frameHeight: 64
+    });
     scene.load.spritesheet('electric_shield', 'assets/Effect_ElectricShield_1_265x265.png', {
       frameWidth: 265,
       frameHeight: 265
@@ -76,6 +101,24 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
           repeat: -1
         });
     }
+
+    // Dash animations for rows 1 and 7 (15 frames per row)
+    if (!scene.anims.exists('bird_dash_row_7')) {
+      scene.anims.create({
+        key: 'bird_dash_row_7',
+        frames: scene.anims.generateFrameNumbers('bird_dash', { start: 6 * 15, end: 6 * 15 + 14 }), 
+        frameRate: 10,
+        repeat: -1
+      });
+    }
+    if (!scene.anims.exists('bird_dash_row_1')) {
+      scene.anims.create({
+        key: 'bird_dash_row_1',
+        frames: scene.anims.generateFrameNumbers('bird_dash', { start: 0, end: 14 }), 
+        frameRate: 10,
+        repeat: -1
+      });
+    }
   }
 
   // Agora apenas guarda o item
@@ -92,7 +135,6 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.shields = 3;
     this.shieldSprite.setVisible(true);
     this.shieldSprite.play('shield_anim');
-    this.setTint(0x00ffff);
     
     this.notifyHUD();
     this.scene.events.emit('updateStoredShields', this.storedShields);
@@ -131,6 +173,37 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     if (this.xp >= this.xpNextLevel) {
       this.level++;
       this.xp -= this.xpNextLevel;
+      
+      if (this.maxLives < 6) this.maxLives++;
+      this.lives = this.maxLives;
+      
+      // SISTEMA DE AURA E HABILIDADE (GLOW E DASH)
+      if (this.level < 7) {
+          this.auraFX.outerStrength = this.level - 1;
+          const colorIndex = Math.min((this.level - 1) * 2, this.goldPalette.length - 1);
+          this.auraFX.color = this.goldPalette[colorIndex];
+          
+          // PROGRESSÃO DA HABILIDADE DE DASH
+          if (this.level >= 3) {
+              this.canDash = true;
+              // Aumenta o dano suavemente
+              this.dashDamage = this.level - 1; 
+              
+              // Muda a animação (line 7 para levels 3-6)
+              this.dashAnimationRow = 7;
+          }
+      } else {
+          // Nível 7 em diante (Evolução Final)
+          this.startGoldGlow();
+          
+          // Dano Máximo e Animação Final (line 1)
+          this.canDash = true;
+          this.dashDamage = 5;
+          this.dashAnimationRow = 1; // Agora usa a animação da linha 1
+      }
+
+      this.scene.events.emit('updateMaxLives', this.maxLives);
+      this.notifyHUD();
       this.scene.events.emit('levelUp', this.level);
     }
 
@@ -165,6 +238,36 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     } else {
       this.startInvincibility();
     }
+  }
+
+  startGoldGlow() {
+    if (this.isMaxLevelGlow) return;
+    this.isMaxLevelGlow = true;
+
+    // Tween 1: Faz a Aura pulsar de tamanho (respiração)
+    this.scene.tweens.add({
+        targets: this.auraFX,
+        outerStrength: 8, // Fica bem expansiva
+        innerStrength: 2, // Brilha por dentro também
+        duration: 1200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+    });
+
+    // Tween 2: Faz a cor da Aura ciclar por toda a sua paleta de ouro
+    this.scene.tweens.add({
+        targets: this,
+        glowStep: this.goldPalette.length - 1,
+        duration: 2000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Linear',
+        onUpdate: () => {
+            const index = Math.round(this.glowStep);
+            this.auraFX.color = this.goldPalette[index];
+        }
+    });
   }
 
   startInvincibility() {
@@ -214,12 +317,23 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
         if (this.shieldSprite) this.shieldSprite.setVisible(false);
         return;
     } 
-    this.setVelocity(0);
 
     // Lógica para usar escudo
     if (Phaser.Input.Keyboard.JustDown(this.shieldKey)) {
         this.useShield();
     }
+
+    // Lógica para usar Dash
+    if (Phaser.Input.Keyboard.JustDown(this.dashKey)) {
+        this.startDash();
+    }
+
+    if (this.isDashing) {
+        if (this.shieldSprite) this.shieldSprite.setPosition(this.x, this.y);
+        return; 
+    }
+
+    this.setVelocity(0);
 
     if (this.shields > 0 && this.shieldSprite) {
         this.shieldSprite.setPosition(this.x, this.y);
@@ -242,6 +356,35 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     } else if (cursors.down.isDown) {
       this.setVelocityY(this.speed);
     }
+  }
+
+  startDash() {
+    if (!this.canDash || this.isDashing || this.isDead || this.scene.isPaused || this.scene.isGameOver) return;
+
+    this.isDashing = true;
+    this.dashTime = this.scene.time.now;
+    this.setScale(2); // Reduz escala para compensar o tamanho do sprite dash (64x64 vs 16x16)
+    
+    // Animação de Dash específica (use a spritesheet 06.png e a linha definida)
+    this.play('bird_dash_row_' + this.dashAnimationRow); 
+
+    const dashSpeed = 800; // Alta velocidade
+    const duration = 500; // Curta duração
+
+    // Define a velocidade no eixo X com base na direção que está virado
+    const directionX = (this.flipX) ? -1 : 1;
+    this.body.setVelocityX(directionX * dashSpeed);
+    this.body.setVelocityY(0); // Dash puramente horizontal
+
+    this.scene.time.delayedCall(duration, () => {
+      if (this.active && !this.isDead) {
+        this.isDashing = false;
+        this.setVelocity(0, 0);
+        this.clearTint();
+        this.setScale(4); // Restaura escala original (4x16 = 64)
+        this.play('fly');
+      }
+    });
   }
 
   shootPoop() {

@@ -83,9 +83,9 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  takeDamage() {
+  takeDamage(amount = 1) {
     if (!this.active || this.isDead) return;
-    this.hp--;
+    this.hp -= amount;
     if (this.hp <= 0) {
       this.die();
     } else {
