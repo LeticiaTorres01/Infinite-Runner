@@ -8,12 +8,9 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
 
     this.setScale(4); 
 
-    if (this.body) {
-      this.body.setAllowGravity(false);
-    }
-
     this.play('fly');
-    this.speed = 300; 
+    this.baseSpeed = 300; // Velocidade inicial
+    this.speed = this.baseSpeed; // Velocidade atual aplicada na física
     this.isDead = false;
     
     // SISTEMA DE VIDAS
@@ -28,11 +25,34 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.isMaxLevelGlow = false;
     this.glowStep = 0; 
     
-    // Cria uma Aura FX nativa do Phaser (Cor, Força Externa, Força Interna)
-    // Começa invisível (Força 0)
+    // TABELA DE STATUS DO DASH (Level: {row, scale, cd, dmg, dur})
+    this.dashConfig = {
+        2: { row: 7, scale: 2, cd: 30000, dmg: 1, dur: 250 },
+        3: { row: 6, scale: 3, cd: 25000, dmg: 2, dur: 280 },
+        4: { row: 5, scale: 3, cd: 22000, dmg: 3, dur: 310 },
+        5: { row: 4, scale: 3, cd: 20000, dmg: 4, dur: 340 },
+        6: { row: 3, scale: 4, cd: 17000, dmg: 5, dur: 370 },
+        7: { row: 2, scale: 4, cd: 14000, dmg: 6, dur: 400 },
+        8: { row: 8, scale: 4, cd: 12000, dmg: 8, dur: 450 },
+        9: { row: 9, scale: 4, cd: 10000, dmg: 10, dur: 500 },
+        10: { row: 1, scale: 5, cd: 5000, dmg: 15, dur: 600 }
+    };
+
+    this.isDashReady = false; 
+    this.isDashing = false;
+    
+    // Aura FX - Inicia desativada (só liga quando tiver dash)
     this.auraFX = this.preFX.addGlow(0xFFFFFF, 0, 0, false, 0.1, 10);
+    this.auraFX.active = false; 
 
     this.isInvincible = false;
+
+    // Altera a hitbox padrão de quadrado para Círculo (Raio 8, pois a imagem original tem 16x16)
+    if (this.body) {
+        this.body.setAllowGravity(false);
+        this.body.setCircle(8, 0, 0); 
+    }
+
     this.shields = 0; 
     this.storedShields = 0; // Novo: contador de escudos guardados
 
@@ -71,7 +91,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
       frameWidth: 16, 
       frameHeight: 16 
     });
-    scene.load.spritesheet('bird_dash', 'assets/06.png', {
+    scene.load.spritesheet('bird_dash_sheet', 'assets/06.png', {
       frameWidth: 64,
       frameHeight: 64
     });
@@ -102,23 +122,23 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
         });
     }
 
-    // Dash animations for rows 1 and 7 (15 frames per row)
-    if (!scene.anims.exists('bird_dash_row_7')) {
-      scene.anims.create({
-        key: 'bird_dash_row_7',
-        frames: scene.anims.generateFrameNumbers('bird_dash', { start: 6 * 15, end: 6 * 15 + 14 }), 
-        frameRate: 10,
-        repeat: -1
-      });
-    }
-    if (!scene.anims.exists('bird_dash_row_1')) {
-      scene.anims.create({
-        key: 'bird_dash_row_1',
-        frames: scene.anims.generateFrameNumbers('bird_dash', { start: 0, end: 14 }), 
-        frameRate: 10,
-        repeat: -1
-      });
-    }
+    // NOVO: Gerador automático de Animações do Dash (Linhas 1 a 9)
+    const rows = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const framesPerRow = 15; // De acordo com as informações (960x576, 15 frames, 9 linhas)
+
+    rows.forEach(row => {
+        if (!scene.anims.exists('bird_dash_row_' + row)) {
+            scene.anims.create({
+                key: 'bird_dash_row_' + row,
+                frames: scene.anims.generateFrameNumbers('bird_dash_sheet', { 
+                    start: (row - 1) * framesPerRow, 
+                    end: (row * framesPerRow) - 1 
+                }),
+                frameRate: 15,
+                repeat: 0
+            });
+        }
+    });
   }
 
   // Agora apenas guarda o item
@@ -177,30 +197,26 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
       if (this.maxLives < 6) this.maxLives++;
       this.lives = this.maxLives;
       
-      // SISTEMA DE AURA E HABILIDADE (GLOW E DASH)
-      if (this.level < 7) {
-          this.auraFX.outerStrength = this.level - 1;
+      // SISTEMA DE AURA COMO INDICADOR DE DASH
+      if (this.level >= 2) {
+          // Atualiza o quão brilhante é com base no level
+          this.auraFX.outerStrength = Math.min(this.level, 8);
           const colorIndex = Math.min((this.level - 1) * 2, this.goldPalette.length - 1);
           this.auraFX.color = this.goldPalette[colorIndex];
           
-          // PROGRESSÃO DA HABILIDADE DE DASH
-          if (this.level >= 3) {
-              this.canDash = true;
-              // Aumenta o dano suavemente
-              this.dashDamage = this.level - 1; 
-              
-              // Muda a animação (line 7 para levels 3-6)
-              this.dashAnimationRow = 7;
+          // Se acabou de pegar level 2 (ou se já upou com o dash pronto), liga a Aura
+          if (!this.isDashReady && !this.isDashing) {
+              this.isDashReady = true;
+              this.auraFX.active = true;
           }
       } else {
-          // Nível 7 em diante (Evolução Final)
-          this.startGoldGlow();
-          
-          // Dano Máximo e Animação Final (line 1)
-          this.canDash = true;
-          this.dashDamage = 5;
-          this.dashAnimationRow = 1; // Agora usa a animação da linha 1
+          // Nível inferior a 2: Aura desativada
+          this.auraFX.active = false;
       }
+
+      // AUMENTO DINÂMICO DE VELOCIDADE
+      // A cada level ele ganha +30 de velocidade, com um limite máximo de 600 (para manter o controle do jogador)
+      this.speed = Math.min(this.baseSpeed + ((this.level - 1) * 30), 600);
 
       this.scene.events.emit('updateMaxLives', this.maxLives);
       this.notifyHUD();
@@ -272,17 +288,39 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
 
   startInvincibility() {
     this.isInvincible = true;
-    this.scene.tweens.add({
-      targets: this,
-      alpha: 0.2,
-      duration: 100,
-      ease: 'Linear',
-      yoyo: true,
-      repeat: 10,
-      onComplete: () => {
-        this.isInvincible = false;
-        this.alpha = 1;
-      }
+
+    // 1. Camera Shake (Tremor de tela) para dar peso ao impacto do dano
+    this.scene.cameras.main.shake(150, 0.001);
+
+    // 2. Efeito visual de piscar Vermelho Sólido
+    let isRed = false;
+    
+    // Cria um temporizador que roda 10 vezes rápido
+    const blinkEvent = this.scene.time.addEvent({
+        delay: 100,
+        repeat: 9, // Executa 10 vezes total (1 segundo)
+        callback: () => {
+            if (this.isDead) {
+                blinkEvent.remove();
+                return;
+            }
+            
+            isRed = !isRed;
+            if (isRed) {
+                // setTintFill substitui todos os pixels não-transparentes pela cor pura
+                this.setTintFill(0xff0000); 
+            } else {
+                this.clearTint(); 
+            }
+        }
+    });
+
+    // 3. Fim da Invulnerabilidade
+    this.scene.time.delayedCall(1000, () => {
+        if (!this.isDead) {
+            this.isInvincible = false;
+            this.clearTint();
+        }
     });
   }
 
@@ -359,30 +397,62 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
   }
 
   startDash() {
-    if (!this.canDash || this.isDashing || this.isDead || this.scene.isPaused || this.scene.isGameOver) return;
+    // Só usa se for level 2+, estiver pronto, não estiver morto ou pausado
+    if (this.level < 2 || !this.isDashReady || this.isDashing || this.isDead || this.scene.isPaused || this.scene.isGameOver) return;
 
     this.isDashing = true;
-    this.dashTime = this.scene.time.now;
-    this.setScale(2); // Reduz escala para compensar o tamanho do sprite dash (64x64 vs 16x16)
+    this.isInvincible = true; // Garante i-frames durante o dash
+    this.isDashReady = false;
+    this.auraFX.active = false; // DESLIGA A AURA (Inicia o Cooldown)
+
+    // Busca a configuração do dash baseada no level atual (Limita a tabela no level 10)
+    const currentLevel = Math.min(this.level, 10);
+    const config = this.dashConfig[currentLevel];
+
+    // Executa a Animação e a nova Escala
+    this.play('bird_dash_row_' + config.row); 
+    this.setScale(config.scale);
     
-    // Animação de Dash específica (use a spritesheet 06.png e a linha definida)
-    this.play('bird_dash_row_' + this.dashAnimationRow); 
+    // ATUALIZAÇÃO: Dano e Duração agora puxam da tabela
+    this.dashDamage = config.dmg; 
+    const dashDuration = config.dur;
+    
+    // HITBOX CIRCULAR DURANTE O DASH
+    // A imagem do dash tem frame de 64x64. Um círculo de raio 16 (diametro 32) centralizado:
+    if (this.body) {
+      this.body.setCircle(16, 16, 16); 
+    }
 
-    const dashSpeed = 800; // Alta velocidade
-    const duration = 500; // Curta duração
+    const dashSpeed = 700;
 
-    // Define a velocidade no eixo X com base na direção que está virado
+    // Define a velocidade no eixo X com base na direção que está virado (flipX)
     const directionX = (this.flipX) ? -1 : 1;
-    this.body.setVelocityX(directionX * dashSpeed);
-    this.body.setVelocityY(0); // Dash puramente horizontal
+    if (this.body) {
+      this.body.setVelocityX(directionX * dashSpeed);
+      this.body.setVelocityY(0); // DASH TOTALMENTE HORIZONTAL
+    }
 
-    this.scene.time.delayedCall(duration, () => {
+    // FIM DA ANIMAÇÃO DE DASH
+    this.scene.time.delayedCall(dashDuration, () => {
       if (this.active && !this.isDead) {
         this.isDashing = false;
-        this.setVelocity(0, 0);
-        this.clearTint();
-        this.setScale(4); // Restaura escala original (4x16 = 64)
+        this.isInvincible = false; // Perde a invulnerabilidade ao fim do dash
+        if (this.body) this.setVelocity(0, 0);
+        
+        // Retorna pro voo normal, escala padrão (4) e hitbox circular de raio 8 (BirdFly.png 16x16)
         this.play('fly');
+        this.setScale(4);
+        if (this.body) {
+          this.body.setCircle(8, 0, 0);
+        }
+        
+        // INICIA O TEMPO DE RECARGA (COOLDOWN)
+        this.scene.time.delayedCall(config.cd, () => {
+            if (this.active && !this.isDead) {
+                this.isDashReady = true;
+                this.auraFX.active = true; // RELIGA A AURA! Dash Pronto!
+            }
+        });
       }
     });
   }
@@ -392,7 +462,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     if (this.ammo > 0 && currentTime > this.lastShootTime + this.shootDelay && this.scene.isGameStarted && !this.isDead) {
       this.ammo--;
       this.lastShootTime = currentTime;
-      const poop = new Poop(this.scene, this.x, this.y + 15, this.body.velocity.x);
+      const poop = new Poop(this.scene, this.x, this.y + 15, this.body.velocity.x, this.level);
       if (this.scene.poops) {
         this.scene.poops.add(poop);
       }

@@ -99,7 +99,7 @@ export default class PlayScene extends Phaser.Scene {
 
     Bird.createAnimations(this); Mushroom.createAnimations(this); Bee.createAnimations(this);
     Flicker.createAnimations(this); Orange.createAnimations(this); Fairy.createAnimations(this);
-    BlueCoin.createAnimations(this); GoldCoin.createAnimations(this);
+    BlueCoin.createAnimations(this); GoldCoin.createAnimations(this); Poop.createAnimations(this);
 
     const addLayer = (key, speed, isLight = false) => {
       const texture = this.textures.get(key);
@@ -146,26 +146,70 @@ export default class PlayScene extends Phaser.Scene {
     this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
     this.events.on('updateMaxLives', (maxLives) => this.rebuildHeartsHUD(maxLives));
 
-    this.physics.add.overlap(this.poops, this.mushrooms, (poop, mushroom) => { if (!mushroom.isDead) { poop.destroy(); mushroom.takeDamage(); } });
-    this.physics.add.overlap(this.poops, this.flickers, (poop, flicker) => { if (!flicker.isDead) { poop.destroy(); flicker.takeDamage(); } });
-    this.physics.add.overlap(this.poops, this.bees, (poop, bee) => { if (!bee.isDead) { poop.destroy(); bee.takeDamage(); } });
-    this.physics.add.overlap(this.poops, this.oranges, (poop, orange) => { if (!orange.isDead) { poop.destroy(); orange.takeDamage(); } });
-    this.physics.add.overlap(this.bird, this.flickers, (bird, flicker) => { if (!flicker.isDead && !bird.isDead) { bird.takeDamage(); flicker.die(); } });
-    this.physics.add.overlap(this.bird, this.bees, (bird, bee) => { if (!bee.isDead && !bird.isDead) { bird.takeDamage(); bee.die(); } });
-    this.physics.add.overlap(this.bird, this.mushrooms, (bird, mushroom) => { if (!mushroom.isDead && !bird.isDead) { bird.takeDamage(); } });
-    this.physics.add.overlap(this.bird, this.oranges, (bird, orange) => { if (!orange.isDead && !bird.isDead) { bird.takeDamage(); } });
+    // NOVO SISTEMA DE PENETRAÇÃO DO PROJÉTIL
+    const handlePoopHit = (poop, enemy) => {
+        if (enemy.isDead) return;
 
-    // Colisor para o Tori causar dano nos inimigos durante o dash
-    this.physics.add.overlap(this.bird, this.mushrooms, (bird, enemy) => {
-        if (bird.isDashing && !enemy.isDead) {
-            enemy.takeDamage(bird.dashDamage);
+        const enemyCurrentHP = enemy.hp || 1; // Verifica a vida atual do monstro
+        
+        // 1. Causa o dano atual do cocô no inimigo
+        if (typeof enemy.takeDamage === 'function') {
+            enemy.takeDamage(poop.damage);
+        } else {
+            enemy.die();
+        }
+
+        // 2. Verifica se o Cocô deve explodir ou continuar atravessando
+        // Se a explosão já está rolando (AoE), não subtrai mais dano, só acerta os outros em volta
+        if (!poop.isExploding) {
+            if (poop.damage > enemyCurrentHP) {
+                // PENETROU! Matou o bicho e ainda sobrou dano. Continua caindo, mas mais fraco.
+                poop.damage -= enemyCurrentHP;
+                
+                // Opcional: enfraquece o brilho da aura para mostrar que perdeu força
+                if (poop.auraFX) {
+                    poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0); 
+                }
+            } else {
+                // Bateu em algo duro demais para atravessar. Explode na cara do bicho!
+                poop.explode(); 
+            }
+        }
+    };
+
+    this.physics.add.overlap(this.poops, this.mushrooms, handlePoopHit);
+    this.physics.add.overlap(this.poops, this.flickers, handlePoopHit);
+    this.physics.add.overlap(this.poops, this.bees, handlePoopHit);
+    this.physics.add.overlap(this.poops, this.oranges, handlePoopHit);
+
+    // COLISÃO COM O CHÃO (Ativa a explosão em área para pegar inimigos próximos)
+    this.physics.add.collider(this.poops, this.ground, (poop, ground) => {
+        if (!poop.isExploding) {
+            poop.explode();
         }
     });
-    this.physics.add.overlap(this.bird, this.bees, (bird, enemy) => {
-        if (bird.isDashing && !enemy.isDead) {
-            enemy.takeDamage(bird.dashDamage);
+
+    // NOVO SISTEMA DE COLISÃO DO PÁSSARO COM INIMIGOS
+    const handleEnemyCollision = (bird, enemy) => {
+        if (enemy.isDead || bird.isDead) return;
+
+        if (bird.isDashing) {
+            // Se o pássaro está no Dash: Ele causa dano e passa ileso
+            if (typeof enemy.takeDamage === 'function') {
+                enemy.takeDamage(bird.dashDamage || 1);
+            } else {
+                enemy.die(); 
+            }
+        } else {
+            // Se o pássaro NÃO está no Dash: Ele sofre dano, mas NÃO mata o monstro com o corpo
+            bird.takeDamage();
         }
-    });
+    };
+
+    this.physics.add.overlap(this.bird, this.flickers, handleEnemyCollision);
+    this.physics.add.overlap(this.bird, this.bees, handleEnemyCollision);
+    this.physics.add.overlap(this.bird, this.mushrooms, handleEnemyCollision);
+    this.physics.add.overlap(this.bird, this.oranges, handleEnemyCollision);
 
     this.physics.add.overlap(this.bird, this.coins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(); bird.collectShieldItem(); bird.gainExperience(5, 50); } });
     this.physics.add.overlap(this.bird, this.goldCoins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(bird); } });
