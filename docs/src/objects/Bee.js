@@ -25,6 +25,11 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     this.isDashing = false;
     this.isDead = false;
     this.nextAttackTime = scene.time.now + 1000; 
+
+    this.attackCount = 0; // Conta quantas investidas a abelha já deu
+    this.isSuicideDash = false; // Flag para a investida que sai da tela
+    this.isUpgraded = false; // Flag para o monstro do round 7+
+    this.comboCount = 0; // Conta os rasantes da abelha evoluída
   }
 
   static preload(scene) {
@@ -66,18 +71,50 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     this.isDashing = true;
     this.play('bee_attack_anim');
 
+    // Se já atacou 7 vezes, a 8ª investida é suicida (foge da tela)
+    if (this.attackCount >= 7) {
+        this.isSuicideDash = true;
+    }
+
     const dx = (bird.x > this.x) ? 1 : -1;
     const dy = (bird.y > this.y) ? 1 : -1;
 
-    const dashSpeed = 400;
+    // Na investida suicida, ela vai mais rápido
+    const dashSpeed = this.isSuicideDash ? 600 : 400;
     this.setVelocity(dx * dashSpeed, dy * dashSpeed);
 
-    this.scene.time.delayedCall(800, () => {
+    // Se for o dash suicida, apenas retorna. O isDashing continuará true
+    // e ela voará em linha reta até o método update() destruí-la fora da tela.
+    if (this.isSuicideDash) {
+        return;
+    }
+
+    this.attackCount++;
+
+    // Tempo de duração do dash: se for upgraded, o rasante é mais curto para permitir o combo
+    const dashDuration = this.isUpgraded ? 450 : 800;
+
+    this.scene.time.delayedCall(dashDuration, () => {
       if (this.active && !this.isDead) {
         this.isDashing = false;
         this.play('bee_fly_anim');
         this.directionX = dx;
-        this.nextAttackTime = this.scene.time.now + 2000;
+
+        // Lógica de tempo para o próximo ataque
+        if (this.isUpgraded) {
+            this.comboCount++;
+            if (this.comboCount >= 3) {
+                // Terminou o combo de 3 rasantes, pausa longa
+                this.comboCount = 0;
+                this.nextAttackTime = this.scene.time.now + 2000;
+            } else {
+                // Prepara imediatamente o próximo rasante do combo (pausa curta)
+                this.nextAttackTime = this.scene.time.now + 250; 
+            }
+        } else {
+            // Abelha normal: pausa longa padrão
+            this.nextAttackTime = this.scene.time.now + 2000;
+        }
       }
     });
   }

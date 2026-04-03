@@ -148,8 +148,8 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
 
     if (this.anims) this.anims.stop();
     if (this.body) {
-        this.body.setVelocityX(0);
-        this.body.setAccelerationX(0);
+        this.body.setVelocity(0);
+        this.body.enable = false; // Desativa hitbox imediatamente
     }
     this.play('mushroom_die_anim');
     this.once('animationcomplete-mushroom_die_anim', () => {

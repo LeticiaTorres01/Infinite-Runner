@@ -15,7 +15,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 800 }, // Aumentado para compensar a resolução maior
-            debug: false 
+            debug: false
         }
     },
     scene: [StoryScene, PlayScene, Phase2Scene, CreditsScene]

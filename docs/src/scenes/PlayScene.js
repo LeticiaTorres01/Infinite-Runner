@@ -32,16 +32,40 @@ export default class PlayScene extends Phaser.Scene {
     this.hearts = [];
     this.shieldIcons = [];
 
+    // --- ROUND MANAGER STATE ---
     this.currentRound = 1;
     this.spawnQueue = [];
     this.isSpawningFinished = false; 
     this.isRoundTransitioning = false; 
+
     this.roundRecipes = [
-      { round: 1, flickers: 3, mushrooms: 0, bees: 0, fruits: 2, coins: 1 },
-      { round: 2, flickers: 0, mushrooms: 4, bees: 0, fruits: 2, coins: 2 },
-      { round: 3, flickers: 4, mushrooms: 3, bees: 2, fruits: 3, coins: 10 },
-      { round: 4, flickers: 6, mushrooms: 4, bees: 4, fruits: 4, coins: 15 },
-      { round: 5, flickers: 10, mushrooms: 6, bees: 6, fruits: 5, coins: 20 }
+        // --- INTRODUÇÃO (Apresentação espaçada) ---
+        // Round 1: Apenas os Flickers (obstáculos estáticos). Tempo longo para o jogador se acostumar com o voo.
+        { round: 1, flickers: 4, mushrooms: 0, bees: 0, fruits: 2, coins: 2, spawnDelay: 3500 },
+        // Round 2: Apenas Cogumelos. Ensina que o perigo vem de baixo.
+        { round: 2, flickers: 0, mushrooms: 5, bees: 0, fruits: 2, coins: 2, spawnDelay: 3200 },
+        // Round 3: Apenas Abelhas. Ensina a mecânica de investida (dash) vinda do alto.
+        { round: 3, flickers: 0, mushrooms: 0, bees: 4, fruits: 3, coins: 3, spawnDelay: 3000 },
+
+        // --- SINERGIA (Misturando os perigos) ---
+        // Round 4: Parede estática + Puladores.
+        { round: 4, flickers: 4, mushrooms: 4, bees: 0, fruits: 3, coins: 3, spawnDelay: 2500 },
+        // Round 5: O Ataque aéreo e terrestre (O jogador precisa ficar no meio da tela).
+        { round: 5, flickers: 0, mushrooms: 4, bees: 4, fruits: 4, coins: 4, spawnDelay: 2200 },
+        // Round 6: O Trio. Todos os monstros aparecem juntos pela primeira vez.
+        { round: 6, flickers: 3, mushrooms: 3, bees: 3, fruits: 4, coins: 5, spawnDelay: 2000 },
+
+        // --- PRESSÃO (Obriga o uso de tiros/cocô para abrir caminho) ---
+        // Round 7: Foco em barreira terrestre forte com suporte aéreo.
+        { round: 7, flickers: 5, mushrooms: 6, bees: 3, fruits: 5, coins: 6, spawnDelay: 1600 },
+        // Round 8: Foco em enxame aéreo forte com obstáculos terrestres.
+        { round: 8, flickers: 5, mushrooms: 3, bees: 6, fruits: 5, coins: 6, spawnDelay: 1400 },
+        // Round 9: Pré-Clímax. Caos equilibrado.
+        { round: 9, flickers: 6, mushrooms: 6, bees: 6, fruits: 6, coins: 8, spawnDelay: 1100 },
+
+        // --- CLÍMAX (Teste de Sobrevivência) ---
+        // Round 10: O limite da Fase 1. Spawns extremamente rápidos, tela cheia.
+        { round: 10, flickers: 8, mushrooms: 8, bees: 8, fruits: 8, coins: 10, spawnDelay: 800 }
     ];
   }
 
@@ -93,7 +117,7 @@ export default class PlayScene extends Phaser.Scene {
     addLayer('bg_arvores_densas', 0.5); addLayer('bg_arvores_medias', 0.7); addLayer('bg_luzes_frente', 0.8, true);
     addLayer('bg_arvores_finas', 1.0); addLayer('bg_arbustos', 1.2); addLayer('bg_grama_fundo', 1.5); addLayer('bg_chao', 2.0);
 
-    const groundHeight = 100; 
+    const groundHeight = 60; 
     this.ground = this.add.rectangle(-2000, h - groundHeight, w + 4000, groundHeight).setOrigin(0, 0);
     this.physics.add.existing(this.ground, true);
 
@@ -123,11 +147,8 @@ export default class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(this.poops, this.mushrooms, (poop, mushroom) => { if (!mushroom.isDead) { poop.destroy(); mushroom.takeDamage(); } });
     this.physics.add.overlap(this.poops, this.flickers, (poop, flicker) => { if (!flicker.isDead) { poop.destroy(); flicker.takeDamage(); } });
     this.physics.add.overlap(this.poops, this.bees, (poop, bee) => { if (!bee.isDead) { poop.destroy(); bee.takeDamage(); } });
-    
     this.physics.add.overlap(this.bird, this.flickers, (bird, flicker) => { if (!flicker.isDead && !bird.isDead) { bird.takeDamage(); flicker.die(); } });
     this.physics.add.overlap(this.bird, this.bees, (bird, bee) => { if (!bee.isDead && !bird.isDead) { bird.takeDamage(); bee.die(); } });
-    
-    // CORREÇÃO: O Pássaro toma dano mas o Mushroom NÃO morre no choque
     this.physics.add.overlap(this.bird, this.mushrooms, (bird, mushroom) => { if (!mushroom.isDead && !bird.isDead) { bird.takeDamage(); } });
 
     this.physics.add.overlap(this.bird, this.coins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(); bird.collectShieldItem(); bird.gainExperience(5, 50); } });
@@ -168,6 +189,7 @@ export default class PlayScene extends Phaser.Scene {
     if (this.isGameOver) return;
     const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
     if (!recipe) { this.startTransitionToPhase2(); return; }
+    
     const w = 1920; const h = 1080;
     const roundText = this.add.text(w / 2, h / 2, `ROUND ${this.currentRound}`, { fontFamily: 'KenneyRocket', fontSize: '100px', fill: '#fff', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setDepth(1000);
     this.tweens.add({ targets: roundText, alpha: 0, y: h / 2 - 200, duration: 2500, ease: 'Power2', onComplete: () => roundText.destroy() });
@@ -183,25 +205,63 @@ export default class PlayScene extends Phaser.Scene {
   processSpawnQueue() {
     if (this.isGameOver || this.isPaused) return;
     if (this.spawnQueue.length === 0) { this.isSpawningFinished = true; return; }
+    
     const type = this.spawnQueue.shift(); const w = 1920; const h = 1080;
     switch (type) {
         case 'flicker': this.flickers.add(new Flicker(this, w + 200, Phaser.Math.Between(200, h - 300))); break;
         case 'mushroom':
             const mx = (Phaser.Math.Between(0, 1) === 0) ? -200 : w + 200;
             const m = new Mushroom(this, mx, h - 100); this.mushrooms.add(m); this.physics.add.collider(m, this.ground); break;
-        case 'bee': this.bees.add(new Bee(this, w + 200, Phaser.Math.Between(200, h - 400))); break;
-        case 'fruit': this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']))); break;
+        case 'bee':
+            const b = new Bee(this, w + 100, Phaser.Math.Between(100, h - 300));
+
+            // Lógica de Upgrade: Round 7 ou superior
+            if (this.currentRound >= 7) {
+                b.isUpgraded = true;
+                b.setTint(0xff5555); // Pinta de avermelhado para o jogador identificar o perigo
+            }
+
+            this.bees.add(b);
+            break;        case 'fruit': this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']))); break;
         case 'coin': this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); break;
     }
-    this.time.delayedCall(2000, () => this.processSpawnQueue());
+
+    // Busca a receita atual para aplicar o delay correto deste round (Tarefa 2)
+    const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
+    const currentDelay = recipe ? recipe.spawnDelay : 3000;
+
+    this.time.delayedCall(currentDelay, () => this.processSpawnQueue());
   }
 
   checkRoundEnd() {
     if (this.isSpawningFinished && !this.isRoundTransitioning) {
         if (this.flickers.countActive(true) + this.mushrooms.countActive(true) + this.bees.countActive(true) === 0) {
-            this.isRoundTransitioning = true; this.time.delayedCall(3000, () => { this.currentRound++; this.startRound(); });
+            this.isRoundTransitioning = true; 
+            
+            this.time.delayedCall(3000, () => { 
+                this.currentRound++;
+                
+                // Trava de Transição de Fases (Tarefa 3)
+                if (this.currentRound > this.roundRecipes.length) {
+                    this.startTransitionToPhase2();
+                } else {
+                    this.startRound(); 
+                }
+            });
         }
     }
+  }
+
+  startTransitionToPhase2() {
+    if (this.isTransitioning) return;
+    this.isTransitioning = true;
+    this.cameras.main.fadeOut(1000, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      const w = 1920; const h = 1080;
+      this.add.rectangle(0, 0, w, h, 0x000000).setOrigin(0).setDepth(999);
+      this.add.text(w / 2, h / 2, 'FASE 2', { fontSize: '80px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(1000);
+      this.time.delayedCall(2000, () => { this.scene.start('Phase2Scene'); });
+    });
   }
 
   debugSkipRound() {
