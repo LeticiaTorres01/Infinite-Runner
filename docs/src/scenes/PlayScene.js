@@ -40,32 +40,32 @@ export default class PlayScene extends Phaser.Scene {
 
     this.roundRecipes = [
         // --- INTRODUÇÃO (Apresentação espaçada) ---
-        // Round 1: Apenas os Flickers (obstáculos estáticos). Tempo longo para o jogador se acostumar com o voo.
-        { round: 1, flickers: 6, mushrooms: 0, bees: 0, oranges: 0, fruits: 7, coins: 2, spawnDelay: 3500 },
+        // Round 1: Batismo. Tempo longo e poucos monstros resistentes.
+        { round: 1, flickers: 10, mushrooms: 0, bees: 0, oranges: 0, coins: 2, spawnDelay: 8000 },
         // Round 2: Apenas Cogumelos. Ensina que o perigo vem de baixo.
-        { round: 2, flickers: 0, mushrooms: 6, bees: 0, fruits: 8, coins: 2, spawnDelay: 3200 },
+        { round: 2, flickers: 0, mushrooms: 8, bees: 0, coins: 2, spawnDelay: 7000 },
         // Round 3: Apenas Abelhas. Ensina a mecânica de investida (dash) vinda do alto.
-        { round: 3, flickers: 0, mushrooms: 0, bees: 4, fruits: 2, coins: 3, spawnDelay: 3000 },
+        { round: 3, flickers: 0, mushrooms: 0, bees: 6, coins: 3, spawnDelay: 6000 },
 
         // --- SINERGIA (Misturando os perigos) ---
         // Round 4: Parede estática + Puladores.
-        { round: 4, flickers: 4, mushrooms: 4, bees: 0, fruits: 7, coins: 3, spawnDelay: 2500 },
+        { round: 4, flickers: 6, mushrooms: 6, bees: 0, coins: 3, spawnDelay: 5000 },
         // Round 5: O Ataque aéreo e terrestre (O jogador precisa ficar no meio da tela).
-        { round: 5, flickers: 0, mushrooms: 4, bees: 4, fruits: 7, coins: 4, spawnDelay: 2200 },
+        { round: 5, flickers: 0, mushrooms: 8, bees: 8, coins: 4, spawnDelay: 4500 },
         // Round 6: O Trio. Todos os monstros aparecem juntos pela primeira vez.
-        { round: 6, flickers: 3, mushrooms: 3, bees: 3, fruits: 7, coins: 5, spawnDelay: 2000 },
+        { round: 6, flickers: 5, mushrooms: 5, bees: 5, coins: 5, spawnDelay: 4000 },
 
         // --- PRESSÃO (Obriga o uso de tiros/cocô para abrir caminho) ---
         // Round 7: Foco em barreira terrestre forte com suporte aéreo.
-        { round: 7, flickers: 5, mushrooms: 6, bees: 3, fruits: 8, coins: 6, spawnDelay: 1600 },
+        { round: 7, flickers: 8, mushrooms: 10, bees: 5, coins: 6, spawnDelay: 3500 },
         // Round 8: Foco em enxame aéreo forte com obstáculos terrestres.
-        { round: 8, flickers: 5, mushrooms: 3, bees: 6, fruits: 9, coins: 6, spawnDelay: 1400 },
+        { round: 8, flickers: 8, mushrooms: 5, bees: 10, coins: 6, spawnDelay: 3000 },
         // Round 9: Pré-Clímax. Caos equilibrado.
-        { round: 9, flickers: 6, mushrooms: 6, bees: 6, fruits: 9, coins: 8, spawnDelay: 1100 },
+        { round: 9, flickers: 10, mushrooms: 10, bees: 10, coins: 8, spawnDelay: 2500 },
 
         // --- CLÍMAX (Teste de Sobrevivência) ---
         // Round 10: O limite da Fase 1. Spawns extremamente rápidos, tela cheia.
-        { round: 10, flickers: 8, mushrooms: 8, bees: 8, fruits: 9, coins: 10, spawnDelay: 800 }
+        { round: 10, flickers: 15, mushrooms: 15, bees: 15, coins: 10, spawnDelay: 2000 }
     ];
   }
 
@@ -87,6 +87,11 @@ export default class PlayScene extends Phaser.Scene {
     this.load.image('bg_arbustos', 'assets/Layer_0002_7.png');
     this.load.image('bg_grama_fundo', 'assets/Layer_0001_8.png');
     this.load.image('bg_chao', 'assets/Layer_0000_9.png');
+
+    // SOUNDTRACK
+    this.load.audio('bgm_pre_start', 'assets/soundtrack/pre-start.mp3');
+    this.load.audio('bgm_phase1', 'assets/soundtrack/phase1.mp3');
+    this.load.audio('bgm_pause', 'assets/soundtrack/pause.mp3');
   }
 
   create() {
@@ -134,6 +139,14 @@ export default class PlayScene extends Phaser.Scene {
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.xpDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
+
+    // SOUND MANAGER
+    this.sound.stopAll();
+    this.bgmPreStart = this.sound.add('bgm_pre_start', { loop: true, volume: 0.5 });
+    this.bgmPhase1 = this.sound.add('bgm_phase1', { loop: true, volume: 0.4 });
+    this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0.3 });
+    this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+    this.bgmPreStart.play();
 
     this.createHeartsHUD();
     this.createAmmoHUD();
@@ -230,6 +243,11 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   startCinematicIntro() {
+        this.add.text(w / 2, h / 2 - 40, 'FASE 2', { fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(1000);
+        this.add.text(w / 2, h / 2 + 60, 'O VAZIO', { fontSize: '54px', fontFamily: 'KenneyRocket', fill: '#ff66ff' }).setOrigin(0.5).setDepth(1000);
+    if (this.bgmPreStart) this.bgmPreStart.stop();
+    if (this.bgmPhase1) this.bgmPhase1.play();
+
     const h = 1080;
     this.bird.setPosition(-200, h / 2); this.bird.setVisible(true);
     if (this.bird.body) this.bird.body.enable = true;
@@ -237,6 +255,20 @@ export default class PlayScene extends Phaser.Scene {
         targets: this.bird, x: 300, duration: 3000, ease: 'Power2.easeOut',
         onComplete: () => {
             this.isGameStarted = true; this.bird.setCollideWorldBounds(true); this.startRound();
+            
+            // SPAWN DE FRUTAS CONSTANTE (A cada 4000ms)
+            this.time.addEvent({
+                delay: 4000,
+                callback: () => {
+                    if (this.isGameStarted && !this.isGameOver && !this.isPaused) {
+                        const w = 1920;
+                        const fruitType = Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
+                        this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), fruitType));
+                    }
+                },
+                loop: true
+            });
+
             this.tweens.add({
                 targets: [ ...this.hearts, ...this.shieldIcons, this.ammoIcon, this.ammoText, this.shieldInvIcon, this.shieldInvText, this.scoreText, this.levelText, this.xpBarBgGraphics, this.xpBarGraphics ],
                 alpha: 1, duration: 1500, ease: 'Linear'
@@ -258,7 +290,6 @@ export default class PlayScene extends Phaser.Scene {
     for (let i = 0; i < recipe.mushrooms; i++) this.spawnQueue.push('mushroom');
     for (let i = 0; i < recipe.bees; i++) this.spawnQueue.push('bee');
     for (let i = 0; i < (recipe.oranges || 0); i++) this.spawnQueue.push('orange');
-    for (let i = 0; i < recipe.fruits; i++) this.spawnQueue.push('fruit');
     for (let i = 0; i < recipe.coins; i++) this.spawnQueue.push('coin');
     Phaser.Utils.Array.Shuffle(this.spawnQueue); this.processSpawnQueue();
   }
@@ -304,7 +335,6 @@ export default class PlayScene extends Phaser.Scene {
         case 'orange':
             const ox = (Phaser.Math.Between(0, 1) === 0) ? -200 : w + 200;
             const o = new Orange(this, ox, h - 100); this.oranges.add(o); this.physics.add.collider(o, this.ground); break;
-        case 'fruit': this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']))); break;
         case 'coin': this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); break;
     }
 
@@ -332,7 +362,7 @@ export default class PlayScene extends Phaser.Scene {
                 
                 // Trava de Transição de Fases (Tarefa 3)
                 if (this.currentRound > this.roundRecipes.length) {
-                    this.startTransitionToPhase2();
+                    this.goToPhase2();
                 } else {
                     this.startRound(); 
                 }
@@ -341,7 +371,7 @@ export default class PlayScene extends Phaser.Scene {
     }
   }
 
-  startTransitionToPhase2() {
+  startTransitionToPhase2(birdData) {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
     this.cameras.main.fadeOut(1000, 0, 0, 0);
@@ -349,7 +379,7 @@ export default class PlayScene extends Phaser.Scene {
       const w = 1920; const h = 1080;
       this.add.rectangle(0, 0, w, h, 0x000000).setOrigin(0).setDepth(999);
       this.add.text(w / 2, h / 2, 'FASE 2', { fontSize: '80px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(1000);
-      this.time.delayedCall(2000, () => { this.scene.start('Phase2Scene'); });
+      this.time.delayedCall(2000, () => { this.scene.start('Phase2Scene', birdData); });
     });
   }
 
@@ -360,6 +390,12 @@ export default class PlayScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.isGameOver) return;
+
+    // Sistema Global de Mute (Tecla M)
+    if (this.muteKey && Phaser.Input.Keyboard.JustDown(this.muteKey)) {
+        this.sound.mute = !this.sound.mute;
+    }
+
     if (this.pauseKey && Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.togglePause();
     if (this.isPaused) return;
     if (Phaser.Input.Keyboard.JustDown(this.debugKey)) this.debugSkipRound();
@@ -464,8 +500,32 @@ export default class PlayScene extends Phaser.Scene {
     this.startGroup = this.add.group();
     const titleText = this.add.text(w / 2, h / 2 - 150, 'TORI-TORI', { fontSize: '180px', fontFamily: 'KenneyRocket', fill: '#fff', stroke: '#000', strokeThickness: 15 }).setOrigin(0.5).setDepth(100);
     const startBtn = this.add.text(w / 2, h / 2 + 100, 'PRESS START', { fontSize: '80px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#2e3b4e', padding: { x: 50, y: 25 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(100);
-    this.startGroup.add(titleText); this.startGroup.add(startBtn);
+    const phase2Btn = this.add.text(w / 2, h / 2 + 250, 'PULAR PARA FASE 2', { fontSize: '50px', fontFamily: 'KenneyPixel', fill: '#ff0', backgroundColor: '#333', padding: { x: 30, y: 15 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(100);
+    
+    this.startGroup.add(titleText); this.startGroup.add(startBtn); this.startGroup.add(phase2Btn);
+
     startBtn.on('pointerdown', () => { this.startGroup.clear(true, true); this.startCinematicIntro(); });
+    phase2Btn.on('pointerdown', () => { this.goToPhase2(false); });
+  }
+
+  // NOVA FUNÇÃO PARA TRANSICIONAR MANTENDO STATUS
+  goToPhase2(isInstant = false) {
+    const birdData = {
+        level: this.bird.level,
+        xp: this.bird.xp,
+        score: this.bird.score,
+        ammo: this.bird.ammo,
+        lives: this.bird.lives,
+        maxLives: this.bird.maxLives,
+        storedShields: this.bird.storedShields,
+        shields: this.bird.shields
+    };
+
+    if (isInstant) {
+        this.scene.start('Phase2Scene', birdData);
+    } else {
+        this.startTransitionToPhase2(birdData);
+    }
   }
 
   createPauseMenu(w, h) {
@@ -492,6 +552,17 @@ export default class PlayScene extends Phaser.Scene {
     if (!this.isGameStarted || this.isGameOver) return;
     this.isPaused = !this.isPaused;
     this.pauseGroup.setVisible(this.isPaused);
-    if (this.isPaused) this.physics.pause(); else this.physics.resume();
+    
+    if (this.isPaused) {
+        this.physics.pause();
+        // Lógica de Áudio do Pause
+        if (this.bgmPhase1) this.bgmPhase1.pause(); 
+        if (this.bgmPause) this.bgmPause.play();
+    } else {
+        this.physics.resume();
+        // Retorna a música original exatamente de onde parou
+        if (this.bgmPause) this.bgmPause.stop();
+        if (this.bgmPhase1) this.bgmPhase1.resume(); 
+    }
   }
 }

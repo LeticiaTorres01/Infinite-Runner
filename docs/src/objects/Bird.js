@@ -83,6 +83,9 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
 
     // Tecla para usar escudo
     this.shieldKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+
+    // DANO INICIAL
+    this.damage = 1;
   }
 
   static preload(scene) {

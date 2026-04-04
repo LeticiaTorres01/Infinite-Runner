@@ -14,7 +14,7 @@ export default class Poop extends Phaser.Physics.Arcade.Sprite {
     // TABELA DE STATUS DO COCÔ (Level: {dmg, radius, row, glowStr, glowColor, expScale, aoeW, aoeH})
     // O Game Designer pode alterar livremente esses valores para balancear o jogo!
     this.poopConfig = {
-        1: { dmg: 2, radius: 25, row: 1, glowStr: 1, glowColor: 0x8B4513, expScale: 1.5, aoeW: 0, aoeH: 0 }, 
+        1: { dmg: 1, radius: 25, row: 1, glowStr: 1, glowColor: 0x8B4513, expScale: 1.5, aoeW: 0, aoeH: 0 }, 
         2: { dmg: 2, radius: 30, row: 2, glowStr: 1, glowColor: 0xA0522D, expScale: 2.0, aoeW: 60, aoeH: 30 }, 
         3: { dmg: 3, radius: 35, row: 3, glowStr: 2, glowColor: 0xCD853F, expScale: 2.5, aoeW: 80, aoeH: 40 },
         4: { dmg: 3, radius: 40, row: 4, glowStr: 2, glowColor: 0xCD853F, expScale: 2.5, aoeW: 100, aoeH: 50 },

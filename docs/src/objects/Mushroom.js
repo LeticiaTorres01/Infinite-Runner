@@ -16,8 +16,8 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(27, 29);
     }
 
-    this.hp = 2;
-    this.xpValue = 20;
+    this.hp = 10;
+    this.xpValue = 40;
     this.scoreValue = 100;
     this.isDead = false;
     
@@ -49,7 +49,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
 
   upgrade() {
     this.isUpgraded = true;
-    this.hp = 4; // Mais vida
+    this.hp = 20; // Mais vida
     this.stunDuration = 500; // Tempo de stun reduzido pela metade
     
     // Aura Laranja/Dourada intensa

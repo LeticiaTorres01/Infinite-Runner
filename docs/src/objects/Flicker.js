@@ -17,8 +17,8 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.play('flicker_idle_anim');
-    this.hp = 1;
-    this.xpValue = 5;
+    this.hp = 3;
+    this.xpValue = 10;
     this.scoreValue = 50;
     this.isDead = false;
 

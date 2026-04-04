@@ -16,7 +16,9 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
 
     this.play('bee_fly_anim');
     
-    this.hp = 1;
+    this.hp = 4;
+    this.xpValue = 15;
+    this.scoreValue = 100;
     this.directionX = -1; 
     this.baseSpeed = 150; 
     this.circleSpeed = 0.005; 
@@ -139,6 +141,10 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     if (this.isDead) return;
     this.isDead = true;
     this.isDashing = false;
+
+    if (this.scene.bird && !this.scene.bird.isDead) {
+      this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
+    }
 
     this.anims.stop();
     this.setTexture('bee_hurt'); 
