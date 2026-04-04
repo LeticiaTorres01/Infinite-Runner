@@ -159,20 +159,20 @@ export default class PlayScene extends Phaser.Scene {
             enemy.die();
         }
 
-        // 2. Verifica se o Cocô deve explodir ou continuar atravessando
-        // Se a explosão já está rolando (AoE), não subtrai mais dano, só acerta os outros em volta
+        // 2. Verifica se o Cocô deve continuar atravessando ou sumir
+        // Segundo a regra: Explosão AoE APENAS no solo.
         if (!poop.isExploding) {
             if (poop.damage > enemyCurrentHP) {
                 // PENETROU! Matou o bicho e ainda sobrou dano. Continua caindo, mas mais fraco.
                 poop.damage -= enemyCurrentHP;
                 
-                // Opcional: enfraquece o brilho da aura para mostrar que perdeu força
+                // Enfraquece o brilho da aura para mostrar que perdeu força
                 if (poop.auraFX) {
                     poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0); 
                 }
             } else {
-                // Bateu em algo duro demais para atravessar. Explode na cara do bicho!
-                poop.explode(); 
+                // O bicho absorveu todo o dano: O projétil some sem explodir e sem gerar hitbox extra
+                poop.destroy(); 
             }
         }
     };
@@ -425,15 +425,25 @@ export default class PlayScene extends Phaser.Scene {
   createProgressionHUD() {
     const w = 1920; const h = 1080;
     this.scoreText = this.add.text(60, 60, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0);
-    const barW = 400; const barH = 60; const barX = w - 60 - barW; const barY = h - 30 - barH;
+    const barW = 250; const barH = 30; const barX = w - 60 - barW; const barY = h - 25 - barH;
     this.xpBarBgGraphics = this.add.graphics().setDepth(500).setScrollFactor(0);
-    this.xpBarBgGraphics.fillStyle(0x333333, 0.8); this.xpBarBgGraphics.fillRoundedRect(barX, barY, barW, barH, 30);
-    this.xpBarBgGraphics.lineStyle(4, 0xffffff, 1); this.xpBarBgGraphics.strokeRoundedRect(barX, barY, barW, barH, 30);
+    this.xpBarBgGraphics.fillStyle(0x333333, 0.8); this.xpBarBgGraphics.fillRoundedRect(barX, barY, barW, barH, 15);
+    this.xpBarBgGraphics.lineStyle(2, 0xffffff, 1); this.xpBarBgGraphics.strokeRoundedRect(barX, barY, barW, barH, 15);
     this.xpBarGraphics = this.add.graphics().setDepth(501).setScrollFactor(0);
     const maskShape = this.add.graphics().setDepth(0).setScrollFactor(0).setVisible(false);
-    maskShape.fillRoundedRect(barX, barY, barW, barH, 30);
+    maskShape.fillRoundedRect(barX, barY, barW, barH, 15);
     this.xpBarGraphics.setMask(maskShape.createGeometryMask());
-    this.levelText = this.add.text(barX + barW/2, barY + barH/2, 'LEVEL 1', { fontSize: '32px', fontFamily: 'KenneyRocket', fill: '#fff', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setDepth(502).setScrollFactor(0);
+    
+    if (this.levelText) this.levelText.destroy(); // Limpa caso exista lixo
+    
+    this.levelText = this.add.text(barX + barW / 2, barY + barH / 2, 'LEVEL 1', { 
+        fontSize: '18px', 
+        fontFamily: 'KenneyRocket', 
+        fill: '#ffffff', 
+        stroke: '#000000', 
+        strokeThickness: 3 
+    }).setOrigin(0.5).setDepth(502).setScrollFactor(0);
+
     this.xpBarData = { x: barX, y: barY, w: barW, h: barH };
     this.drawXPBar(0);
   }
