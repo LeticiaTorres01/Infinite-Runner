@@ -2,19 +2,22 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) {
     super(scene, x, y, 'orange_idle');
     
-    this.setScale(3.7); 
+    this.setScale(3.5); 
     this.setOrigin(0.5, 1); 
     this.setDepth(12);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
+    if (this.texture) {
+      this.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+
     if (this.body) {
-      this.body.setAllowGravity(true);
-      this.body.setSize(30, 34);
-      this.body.setOffset(14, 14);
-      this.body.setCollideWorldBounds(true);
+      this.body.setCollideWorldBounds(false);
+      this.body.onWorldBounds = false; 
       this.body.setMaxVelocity(1000, 2000);
+      this.body.setCircle(10, 5, 11); 
     }
 
     this.hp = 8;
@@ -27,19 +30,20 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
     this.hasJumped = false;
     this.isStunned = false;
     this.stunTimer = 0;
-    
-    // Configurações de Perseguição
+    this.jumpCount = 0; 
+    this.isSpecialJumping = false; 
+
+    this.isUpgraded = false; 
     this.baseSpeed = 320;
     this.acceleration = 0.005; 
-    this.chaseSpeedMultiplier = 1.2;
-
-    this.attackCooldown = Phaser.Math.Between(700, 1800);
-    this.sleepChance = 0.3; 
     
-    // Define a direção inicial com base na posição de spawn (sempre em direção ao centro)
+    // Cooldown de ataque: Versão normal demora um pouco mais para atacar novamente
+    this.attackCooldown = Phaser.Math.Between(2000, 4000);
+    this.sleepChance = 0.7; 
+    
     const centerX = scene.scale.width / 2;
     this.patrolDirection = (x < centerX) ? 1 : -1;
-    this.setFlipX(this.patrolDirection > 0);
+    this.setFlipX(this.patrolDirection < 0);
 
     this.patrolSpeedJitter = Phaser.Math.Between(0, 45);
     this.nextPatrolTurnAt = scene.time.now + Phaser.Math.Between(1400, 2600);
@@ -47,8 +51,22 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
     this.patrolBoundaryRight = scene.scale.width - 120;
     
     this.play('orange_walk_anim');
+  }
 
-    this.glowFX = this.preFX.addGlow(0xffb000, 5, 0.1, false, 0.2, 10);
+  upgrade() {
+    this.isUpgraded = true;
+    this.hp = 12; 
+    
+    // Aura Roxa Fininha (Padrão de evolução)
+    this.glowFX = this.preFX.addGlow(0x9900ff, 1, 0, false, 0.1, 10);
+    this.scene.tweens.add({
+        targets: this.glowFX,
+        outerStrength: 3,
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+    });
   }
 
   static preload(scene) {
@@ -96,19 +114,28 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
 
   takeDamage(amount = 1) {
     if (!this.active || this.isDead) return;
+    
     this.hp -= amount;
     if (this.hp <= 0) {
       this.die();
     } else {
+      // Se NÃO for evoluído e estiver dormindo, ele NÃO acorda ao tomar dano (vulnerável)
+      if (!this.isUpgraded && this.isSleeping) {
+          this.setTint(0xff0000);
+          this.scene.time.delayedCall(100, () => this.clearTint());
+          return; 
+      }
+
       this.isStunned = true;
       this.stunTimer = 450;
       this.isAttacking = false;
       this.isSleeping = false;
       this.isBraking = false;
       this.hasJumped = false;
-      if (this.body) this.body.setVelocity(0, 0);
+      if (this.body) {
+          this.body.setVelocity(0, 0);
+      }
       this.clearTint();
-      this.setTexture('orange_hit');
       this.play('orange_hit_anim');
       this.once('animationcomplete', () => {
         if (this.active && !this.isDead) {
@@ -127,13 +154,13 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
   update(bird, time, delta) {
     if (!this.active || this.isDead) return;
 
-    if (this.x < -300 || this.x > this.scene.scale.width + 500) {
+    if (this.x < -1200 || this.x > this.scene.scale.width + 1200 || this.y > this.scene.scale.height + 600) {
       this.destroy();
       return;
     }
 
     if (this.scene.isPaused || this.scene.isGameOver) {
-      if (this.body) this.body.setVelocityX(-200); // Mantém movimento com o cenário no game over
+      if (this.body) this.body.setVelocityX(-200); 
       return;
     }
 
@@ -149,38 +176,52 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
       }
     }
 
+    // Lógica de Sono
     if (this.isSleeping) {
-        this.body.setVelocityX(-200);
+        this.body.setVelocityX(-200); // Drifta com o cenário
+
+        // Condições para acordar
+        const hitLeft = (this.x <= this.patrolBoundaryLeft);
+        const hitRight = (this.x >= this.patrolBoundaryRight);
+        const cooldownOver = (this.attackCooldown <= 0);
+
+        if (hitLeft || hitRight || cooldownOver) {
+            this.wakeUp();
+        }
         return;
     }
 
     if (!this.isAttacking && !this.isBraking) {
-      const speedJitter = Phaser.Math.Between(-this.patrolSpeedJitter, this.patrolSpeedJitter);
-      let targetVelocityX = (this.patrolDirection * this.baseSpeed) + speedJitter;
+        // Lógica de Patrulha
+        const speedJitter = Phaser.Math.Between(-this.patrolSpeedJitter, this.patrolSpeedJitter);
+        let targetVelocityX = (this.patrolDirection * this.baseSpeed) + speedJitter;
 
-      if (this.x <= this.patrolBoundaryLeft) {
-        this.patrolDirection = 1;
-        this.setFlipX(false);
-        this.nextPatrolTurnAt = time + Phaser.Math.Between(1200, 2400);
-      } else if (this.x >= this.patrolBoundaryRight) {
-        this.patrolDirection = -1;
-        this.setFlipX(true);
-        this.nextPatrolTurnAt = time + Phaser.Math.Between(1200, 2400);
-      }
+        if (this.x <= this.patrolBoundaryLeft) {
+            this.patrolDirection = 1;
+            this.setFlipX(false);
+            this.nextPatrolTurnAt = time + Phaser.Math.Between(1200, 2400);
+        } else if (this.x >= this.patrolBoundaryRight) {
+            this.patrolDirection = -1;
+            this.setFlipX(true);
+            this.nextPatrolTurnAt = time + Phaser.Math.Between(1200, 2400);
+        }
 
-      if (time >= this.nextPatrolTurnAt) {
-        this.patrolDirection *= -1;
-        this.setFlipX(this.patrolDirection > 0);
-        this.nextPatrolTurnAt = time + Phaser.Math.Between(1200, 2400);
-      }
+        if (time >= this.nextPatrolTurnAt && this.x > 0 && this.x < this.scene.scale.width) {
+            this.patrolDirection *= -1;
+            this.setFlipX(this.patrolDirection < 0);
+            this.nextPatrolTurnAt = time + Phaser.Math.Between(1200, 2400);
+        }
 
-      targetVelocityX = (this.patrolDirection * this.baseSpeed) + Phaser.Math.Between(-30, 30);
-
+        targetVelocityX = (this.patrolDirection * this.baseSpeed) + Phaser.Math.Between(-30, 30);
         if (this.body) {
             const currentVelocityX = this.body.velocity.x;
             const lerpFactor = this.acceleration * delta;
             const newVelocityX = Phaser.Math.Linear(currentVelocityX, targetVelocityX, Math.min(lerpFactor, 1));
             this.body.setVelocityX(newVelocityX);
+        }
+        
+        if (this.anims.currentAnim && this.anims.currentAnim.key !== 'orange_walk_anim') {
+            this.play('orange_walk_anim');
         }
 
         this.attackCooldown -= delta;
@@ -188,6 +229,10 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
             this.performComplexAttack(bird);
         }
     } else if (this.isAttacking && this.hasJumped) {
+        if (this.isSpecialJumping && this.body.velocity.y > 0) {
+            this.body.setGravityY(4000); 
+        }
+
         if (!onGround) {
             if (this.body.velocity.y < 0) {
                  this.play('orange_jump_anim', true);
@@ -197,7 +242,11 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
         }
 
         if (onGround && this.body.velocity.y >= 0) {
-            this.finishAttack();
+            if (this.isSpecialJumping) {
+                this.dieOnLanding();
+            } else {
+                this.finishAttack();
+            }
         }
     }
   }
@@ -206,16 +255,25 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
     if (!this.active || this.isDead) return;
     this.isAttacking = true;
     this.hasJumped = false;
+    this.jumpCount++;
     this.play('orange_roll_start_anim');
+
+    const jumpDir = (bird.x > this.x) ? 1 : -1;
     
     this.scene.time.delayedCall(200, () => {
       if (!this.active || this.isDead || !this.body) return;
       this.hasJumped = true;
       
-      const jumpPowerY = -1450;
-      const jumpPowerX = this.patrolDirection > 0 ? 220 : -220;
-      this.setFlipX(this.patrolDirection > 0);
+      let jumpPowerY = -1450;
+      let jumpPowerX = jumpDir * 350; 
       
+      if (this.jumpCount >= 6 && this.isUpgraded) {
+        this.isSpecialJumping = true;
+        jumpPowerY = -2200; 
+        jumpPowerX = jumpDir * 450; 
+      }
+
+      this.setFlipX(jumpDir < 0);
       this.body.setVelocityY(jumpPowerY);
       this.body.setVelocityX(jumpPowerX); 
       this.play('orange_rolling_anim', true);
@@ -227,23 +285,21 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
     this.isAttacking = false;
     this.hasJumped = false;
     this.isBraking = true;
-    this.body.setVelocityX(-200);
+    if (this.body) {
+        this.body.setVelocityX(-200);
+    }
     this.play('orange_recover_anim');
     
     this.once('animationcomplete', () => {
         if (!this.active || this.isDead) return;
         
-        if (Math.random() < this.sleepChance) {
+        // Versão normal SEMPRE dorme após o ataque
+        if (!this.isUpgraded || Math.random() < this.sleepChance) {
             this.startSleeping();
         } else {
-            this.play('orange_recover_anim');
-            this.once('animationcomplete', () => {
-                if (this.active && !this.isDead) {
-                    this.isBraking = false;
-                    this.play('orange_walk_anim');
-            this.attackCooldown = Phaser.Math.Between(500, 1300);
-                }
-            });
+            this.isBraking = false;
+            this.play('orange_walk_anim');
+            this.attackCooldown = Phaser.Math.Between(1500, 3000);
         }
     });
   }
@@ -253,23 +309,54 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
       this.isSleeping = true;
       this.isBraking = false;
       this.play('orange_sleep_anim');
-      
-      this.scene.time.delayedCall(1000, () => {
-          if (!this.active || this.isDead) return;
-          this.play('orange_recover_anim');
-          this.once('animationcomplete', () => {
-              if (this.active && !this.isDead) {
-                  this.isSleeping = false;
-                  this.play('orange_walk_anim');
-                  this.attackCooldown = Phaser.Math.Between(1500, 3500);
+      // Cooldown de ataque reiniciado ao dormir
+      this.attackCooldown = this.isUpgraded ? 1000 : 4000;
+  }
+
+  wakeUp() {
+      if (!this.active || this.isDead || !this.isSleeping) return;
+      this.isSleeping = false;
+      this.play('orange_recover_anim');
+      this.once('animationcomplete', () => {
+          if (this.active && !this.isDead) {
+              this.play('orange_walk_anim');
+              if (this.attackCooldown <= 0) {
+                  this.attackCooldown = Phaser.Math.Between(500, 1500);
               }
-          });
+          }
       });
+  }
+
+  dieOnLanding() {
+    if (this.isDead) return;
+    this.isDead = true;
+    this.isSpecialJumping = false;
+    
+    if (this.scene.bird && !this.scene.bird.isDead) {
+        this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
+    }
+
+    this.play('orange_death_anim');
+    
+    if (this.body) {
+      this.body.setVelocityX(-200); 
+      this.body.setVelocityY(0);
+      this.body.checkCollision.none = true;
+    }
+
+    this.scene.time.delayedCall(3000, () => {
+        if (this.active) this.destroy();
+    });
   }
 
   die() {
     if (this.isDead) return;
     this.isDead = true;
+
+    if (this.scene.bird && !this.scene.bird.isDead) {
+        this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
+    }
+
     this.play('orange_death_anim');
     if (this.body) {
       this.body.setVelocityY(-400);

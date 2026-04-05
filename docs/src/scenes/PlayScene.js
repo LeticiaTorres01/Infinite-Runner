@@ -243,12 +243,12 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   startCinematicIntro() {
-        this.add.text(w / 2, h / 2 - 40, 'FASE 2', { fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(1000);
-        this.add.text(w / 2, h / 2 + 60, 'O VAZIO', { fontSize: '54px', fontFamily: 'KenneyRocket', fill: '#ff66ff' }).setOrigin(0.5).setDepth(1000);
+    const w = 1920;
+    const h = 1080;
+    
     if (this.bgmPreStart) this.bgmPreStart.stop();
     if (this.bgmPhase1) this.bgmPhase1.play();
 
-    const h = 1080;
     this.bird.setPosition(-200, h / 2); this.bird.setVisible(true);
     if (this.bird.body) this.bird.body.enable = true;
     this.tweens.add({
@@ -333,8 +333,8 @@ export default class PlayScene extends Phaser.Scene {
             this.bees.add(b);
             break;
         case 'orange':
-            const ox = (Phaser.Math.Between(0, 1) === 0) ? -200 : w + 200;
-            const o = new Orange(this, ox, h - 100); this.oranges.add(o); this.physics.add.collider(o, this.ground); break;
+            const ox = (Phaser.Math.Between(0, 1) === 0) ? -500 : w + 500;
+            const o = new Orange(this, ox, h - 180); this.oranges.add(o); this.physics.add.collider(o, this.ground); break;
         case 'coin': this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); break;
     }
 
@@ -504,7 +504,10 @@ export default class PlayScene extends Phaser.Scene {
     
     this.startGroup.add(titleText); this.startGroup.add(startBtn); this.startGroup.add(phase2Btn);
 
-    startBtn.on('pointerdown', () => { this.startGroup.clear(true, true); this.startCinematicIntro(); });
+    startBtn.on('pointerdown', () => { 
+      this.startGroup.clear(true, true); 
+      this.startCinematicIntro(); 
+    });
     phase2Btn.on('pointerdown', () => { this.goToPhase2(false); });
   }
 

@@ -28,26 +28,37 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     this.isDead = false;
     this.nextAttackTime = scene.time.now + 1000; 
 
-    this.attackCount = 0; // Conta quantas investidas a abelha já deu
-    this.isSuicideDash = false; // Flag para a investida que sai da tela
-    this.isUpgraded = false; // Flag para o monstro do round 7+
-    this.comboCount = 0; // Conta os rasantes da abelha evoluída
+    this.attackCount = 0; 
+    this.isSuicideDash = false; 
+    this.isUpgraded = false; 
+    this.isUltimate = false;
+    this.comboCount = 0; 
   }
 
   upgrade() {
+    if (this.isUpgraded) return;
     this.isUpgraded = true;
+    this.hp = 6;
     
-    // Adiciona uma Aura Vermelha
     this.glowFX = this.preFX.addGlow(0xff0000, 2, 0, false, 0.1, 10);
-    
-    // Tween para fazer a aura piscar rápido (frenesi)
     this.scene.tweens.add({
         targets: this.glowFX,
         outerStrength: 8,
-        duration: 150, // Pisca bem rápido
+        duration: 150, 
         yoyo: true,
         repeat: -1
     });
+  }
+
+  ultimateUpgrade() {
+    this.upgrade();
+    this.isUltimate = true;
+    this.hp = 12;
+    this.baseSpeed = 200;
+    
+    // Aura Roxa Ultimate
+    if (this.glowFX) this.glowFX.destroy();
+    this.glowFX = this.preFX.addGlow(0x9900ff, 4, 1, false, 0.1, 10);
   }
 
   static preload(scene) {
@@ -89,28 +100,22 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     this.isDashing = true;
     this.play('bee_attack_anim');
 
-    // Se já atacou 7 vezes, a 8ª investida é suicida (foge da tela)
-    if (this.attackCount >= 9) {
+    // Versão Ultimate NUNCA faz dash suicida
+    if (!this.isUltimate && this.attackCount >= 9) {
         this.isSuicideDash = true;
     }
 
     const dx = (bird.x > this.x) ? 1 : -1;
     const dy = (bird.y > this.y) ? 1 : -1;
 
-    // Na investida suicida, ela vai mais rápido
     const dashSpeed = this.isSuicideDash ? 600 : 400;
     this.setVelocity(dx * dashSpeed, dy * dashSpeed);
 
-    // Se for o dash suicida, apenas retorna. O isDashing continuará true
-    // e ela voará em linha reta até o método update() destruí-la fora da tela.
-    if (this.isSuicideDash) {
-        return;
-    }
+    if (this.isSuicideDash) return;
 
     this.attackCount++;
 
-    // Tempo de duração do dash: se for upgraded, o rasante é mais curto para permitir o combo
-    const dashDuration = this.isUpgraded ? 450 : 800;
+    const dashDuration = (this.isUltimate || this.isUpgraded) ? 450 : 800;
 
     this.scene.time.delayedCall(dashDuration, () => {
       if (this.active && !this.isDead) {
@@ -118,19 +123,18 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
         this.play('bee_fly_anim');
         this.directionX = dx;
 
-        // Lógica de tempo para o próximo ataque
-        if (this.isUpgraded) {
+        if (this.isUltimate) {
+            // Ultimate ataca com um pequeno delay em vez de ser instantâneo
+            this.nextAttackTime = this.scene.time.now + 800; 
+        } else if (this.isUpgraded) {
             this.comboCount++;
             if (this.comboCount >= 3) {
-                // Terminou o combo de 3 rasantes, pausa longa
                 this.comboCount = 0;
                 this.nextAttackTime = this.scene.time.now + 2000;
             } else {
-                // Prepara imediatamente o próximo rasante do combo (pausa curta)
                 this.nextAttackTime = this.scene.time.now + 500; 
             }
         } else {
-            // Abelha normal: pausa longa padrão
             this.nextAttackTime = this.scene.time.now + 2000;
         }
       }
@@ -141,54 +145,39 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     if (this.isDead) return;
     this.isDead = true;
     this.isDashing = false;
-
     if (this.scene.bird && !this.scene.bird.isDead) {
       this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
     }
-
     this.anims.stop();
     this.setTexture('bee_hurt'); 
-    
     if (this.body) {
       this.body.setAllowGravity(true); 
       this.body.setGravityY(1000);
       this.body.setVelocityX(-100); 
       this.body.checkCollision.none = true; 
     }
-
     this.setAngle(180);
   }
 
   update(bird) {
     if (this.x < -300 || this.x > this.scene.scale.width + 500 || this.y > this.scene.scale.height + 100) {
-      this.destroy();
-      return;
+      this.destroy(); return;
     }
-
-    if (this.isDead) return;
-
+    if (this.isDead) return; 
     if (this.scene.isGameOver) {
-        this.setVelocity(0);
+        if (this.body) this.setVelocity(0);
         return;
     }
-
     if (this.isDashing) return;
-
     if (this.scene.time.now > this.nextAttackTime) {
-      this.performAttack(bird);
-      return;
+      this.performAttack(bird); return;
     }
-
     if (this.x < 50) this.directionX = 1;
     else if (this.x > this.scene.scale.width - 50) this.directionX = -1;
-
     this.timer += 16;
     const vx = (this.baseSpeed * this.directionX) + Math.cos(this.timer * this.circleSpeed) * 100;
     const vy = Math.sin(this.timer * this.circleSpeed) * 100;
     this.setVelocity(vx, vy);
-
-    if (bird && !bird.isDead) {
-      this.setFlipX(this.x < bird.x); 
-    }
+    if (bird && !bird.isDead) this.setFlipX(this.x < bird.x); 
   }
 }

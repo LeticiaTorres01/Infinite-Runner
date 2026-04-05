@@ -23,26 +23,38 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
     this.isDead = false;
 
     this.isUpgraded = false;
-    this.detectionRadius = 290; // Distância 'X' em pixels que ele enxerga o pássaro
-    this.chaseSpeed = 160; // Velocidade lenta de perseguição
+    this.isUltimate = false;
+    this.detectionRadius = 290; 
+    this.chaseSpeed = 160; 
   }
 
   upgrade() {
+    if (this.isUpgraded) return;
     this.isUpgraded = true;
-    this.hp = 2;
+    this.hp = 5;
     
-    // Aura Roxa Fantasmagórica
     this.glowFX = this.preFX.addGlow(0x9900ff, 4, 0, false, 0.1, 10);
-    
-    // Tween de pulsação lenta e sombria
     this.scene.tweens.add({
         targets: this.glowFX,
-        outerStrength: 15, // Expande bastante
-        duration: 1200,    // Movimento lento de respiração
+        outerStrength: 15, 
+        duration: 1200,    
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
     });
+  }
+
+  ultimateUpgrade() {
+    this.upgrade();
+    this.isUltimate = true;
+    this.hp = 10;
+    this.setScale(2.2); // Um pouco maior
+    this.detectionRadius = 5000; // Persegue de qualquer lugar
+    this.chaseSpeed = 220;
+    
+    // Aura Preta Ultimate (Glow com cor preta e brilho interno forte)
+    if (this.glowFX) this.glowFX.destroy();
+    this.glowFX = this.preFX.addGlow(0x000000, 8, 4, false, 0.1, 10);
   }
 
   static preload(scene) {
@@ -90,35 +102,26 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
 
   update(bird) {
     if (this.x < -100) {
-      this.destroy();
-      return;
+      this.destroy(); return;
     }
-
+    if (this.isDead) return;
     if (this.scene.isPaused || this.scene.isGameOver) {
-      if (this.body) {
-          this.body.setVelocityX(0);
-          this.body.setVelocityY(0);
-      }
-      return;
+        if (this.body) this.setVelocity(0);
+        return;
     }
 
-    if (this.body && !this.isDead) {
-      // Lógica de perseguição do Flicker Evoluído
-      if (this.isUpgraded && bird && !bird.isDead) {
+    if (this.body) {
+      if ((this.isUltimate || this.isUpgraded) && bird && !bird.isDead) {
           const distance = Phaser.Math.Distance.Between(this.x, this.y, bird.x, bird.y);
-          
           if (distance < this.detectionRadius) {
-              // Pássaro muito perto: Move na direção do pássaro lentamente
               const angle = Phaser.Math.Angle.Between(this.x, this.y, bird.x, bird.y);
               this.body.setVelocityX(Math.cos(angle) * this.chaseSpeed);
               this.body.setVelocityY(Math.sin(angle) * this.chaseSpeed);
           } else {
-              // Fora da distância: Voa reto para a esquerda normalmente
-              this.body.setVelocityX(-250); // Levemente mais rápido que o Flicker normal
+              this.body.setVelocityX(-250);
               this.body.setVelocityY(0);
           }
       } else {
-          // Flicker Normal (Sempre reto)
           this.body.setVelocityX(-200);
           this.body.setVelocityY(0);
       }
@@ -128,11 +131,9 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
   die() {
     if (this.isDead) return;
     this.isDead = true;
-
     if (this.scene.bird && !this.scene.bird.isDead) {
       this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
     }
-
     if (this.body) {
       this.body.setVelocityX(-200);
       this.body.enable = false;

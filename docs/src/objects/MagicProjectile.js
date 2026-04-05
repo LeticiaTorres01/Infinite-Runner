@@ -9,6 +9,11 @@ export default class MagicProjectile extends Phaser.Physics.Arcade.Sprite {
     this.setScale(2); 
     this.setDepth(60);
     this.isCharged = isCharged;
+    
+    // Configurações do comportamento teleguiado
+    this.homingRange = 200; // Distância para começar a perseguir
+    this.speed = isCharged ? 450 : 300;
+    this.turnSpeed = 0.05; // Quão rápido ele vira em direção ao alvo (0 a 1)
 
     if (this.body) {
       this.body.setAllowGravity(false);
@@ -18,10 +23,16 @@ export default class MagicProjectile extends Phaser.Physics.Arcade.Sprite {
 
     this.play('magic_pellet_anim');
 
-    const angle = Phaser.Math.Angle.Between(x, y, targetX, targetY);
-    const speed = isCharged ? 450 : 300;
-    scene.physics.velocityFromRotation(angle, speed, this.body.velocity);
-    this.setRotation(angle);
+    // Define a direção inicial
+    const initialAngle = Phaser.Math.Angle.Between(x, y, targetX, targetY);
+    this.setRotation(initialAngle);
+
+    // Usa um pequeno delay para garantir que o corpo físico esteja pronto
+    scene.time.delayedCall(1, () => {
+        if (this.active && this.body) {
+            scene.physics.velocityFromRotation(this.rotation, this.speed, this.body.velocity);
+        }
+    });
 
     this.particles = scene.add.particles(0, 0, 'fairy_flash', {
         speed: 10,
@@ -72,23 +83,72 @@ export default class MagicProjectile extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  takeDamage() {
+    this.explode();
+  }
+
   explode() {
-    if (!this.active) return;
+    if (!this.active || this.isExploding) return;
+    this.isExploding = true;
     if (this.particles) this.particles.stop();
 
-    this.body.setVelocity(0);
+    if (this.body) {
+        this.body.setVelocity(0);
+        this.body.setEnable(false);
+    }
+    
     this.play('giant_climax_impact');
-    this.setScale(this.isCharged ? 1.2 : 0.7);
+    const explosionScale = this.isCharged ? 1.2 : 0.7;
+    this.setScale(explosionScale);
     this.setRotation(0);
+
+    // MECÂNICA DE REAÇÃO EM CADEIA
+    // Verifica outros mísseis próximos para explodirem também
+    if (this.scene && this.scene.enemyProjectiles) {
+        const explosionRadius = 150 * explosionScale; 
+        this.scene.enemyProjectiles.getChildren().forEach(other => {
+            if (other !== this && other.active && !other.isExploding) {
+                const dist = Phaser.Math.Distance.Between(this.x, this.y, other.x, other.y);
+                if (dist < explosionRadius) {
+                    // Pequeno atraso aleatório para a reação em cadeia parecer mais orgânica
+                    this.scene.time.delayedCall(Phaser.Math.Between(50, 150), () => {
+                        if (other.active) other.explode();
+                    });
+                }
+            }
+        });
+    }
     
     this.once('animationcomplete', () => {
       this.destroy();
     });
   }
 
-  update() {
-    if (this.x < -100 || this.x > this.scene.scale.width + 100 || this.y < -100 || this.y > this.scene.scale.height + 100) {
+  update(time, delta) {
+    if (!this.active || !this.body) return;
+
+    if (this.x < -200 || this.x > this.scene.scale.width + 200 || this.y < -200 || this.y > this.scene.scale.height + 200) {
       this.destroy();
+      return;
+    }
+
+    const bird = this.scene.bird;
+    if (bird && !bird.isDead) {
+        const dist = Phaser.Math.Distance.Between(this.x, this.y, bird.x, bird.y);
+        
+        if (dist < this.homingRange) {
+            const targetAngle = Phaser.Math.Angle.Between(this.x, this.y, bird.x, bird.y);
+            const currentAngle = this.rotation;
+            const rotationStep = this.turnSpeed * (delta / 16.6); 
+            const newAngle = Phaser.Math.Angle.RotateTo(currentAngle, targetAngle, rotationStep);
+            
+            this.setRotation(newAngle);
+            this.scene.physics.velocityFromRotation(newAngle, this.speed, this.body.velocity);
+
+            if (this.particles) {
+                this.particles.setParticleAlpha({ start: 0.8, end: 0 });
+            }
+        }
     }
   }
 }

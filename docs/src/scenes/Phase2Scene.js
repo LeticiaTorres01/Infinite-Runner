@@ -38,8 +38,8 @@ export default class Phase2Scene extends Phaser.Scene {
     this.isRoundTransitioning = false;
     this.roundRecipes = [
       { round: 1, oranges: 6, fairies: 0, mushrooms: 0, bees: 0, fruits: 3, coins: 2, spawnDelay: 2600 },
-      { round: 2, oranges: 0, fairies: 6, mushrooms: 0, bees: 0, fruits: 3, coins: 2, spawnDelay: 2400 },
-      { round: 3, oranges: 5, fairies: 2, mushrooms: 4, bees: 2, fruits: 4, coins: 3, spawnDelay: 2100 },
+      { round: 2, oranges: 0, fairies: 2, mushrooms: 0, bees: 0, fruits: 3, coins: 2, spawnDelay: 2400 },
+      { round: 3, oranges: 0, fairies: 0, mushrooms: 1, bees: 1, flickers: 1, fruits: 4, coins: 3, spawnDelay: 2100 },
       { round: 4, oranges: 4, fairies: 4, mushrooms: 5, bees: 5, fruits: 4, coins: 4, spawnDelay: 1800 },
       { round: 5, oranges: 6, fairies: 6, mushrooms: 6, bees: 6, fruits: 5, coins: 5, spawnDelay: 1500 }
     ];
@@ -171,10 +171,13 @@ export default class Phase2Scene extends Phaser.Scene {
     this.fruits = this.add.group();
     this.poops = this.add.group();
 
-    // NOVOS GRUPOS DA FASE 2 (grupos de fisica)
-    this.oranges = this.physics.add.group();
-    this.fairies = this.physics.add.group();
-    this.enemyProjectiles = this.physics.add.group();
+    // Expandir os limites do mundo físico drasticamente para evitar qualquer teletransporte/limite
+    this.physics.world.setBounds(-2000, -2000, w + 4000, h + 4000);
+
+    // NOVOS GRUPOS DA FASE 2
+    this.oranges = this.add.group();
+    this.fairies = this.add.group();
+    this.enemyProjectiles = this.add.group();
 
     this.physics.add.collider(this.oranges, this.ground);
     this.physics.add.collider(this.mushrooms, this.ground); // Já garante para todos do grupo
@@ -227,8 +230,8 @@ export default class Phase2Scene extends Phaser.Scene {
         }
     };
 
-    const enemyGroups = [this.mushrooms, this.bees, this.flickers, this.oranges, this.fairies];
-    enemyGroups.forEach(group => {
+    const birdEnemyGroups = [this.mushrooms, this.bees, this.flickers, this.oranges, this.fairies];
+    birdEnemyGroups.forEach(group => {
       this.physics.add.overlap(this.bird, group, handleEnemyCollision);
     });
 
@@ -239,18 +242,27 @@ export default class Phase2Scene extends Phaser.Scene {
       const projectileDamage = poop.damage || 1;
       const enemyCurrentHP = Math.max(enemy.hp || 1, 1);
 
-      if (typeof enemy.takeDamage === 'function') enemy.takeDamage(projectileDamage);
-      else if (typeof enemy.die === 'function') enemy.die();
+      if (typeof enemy.takeDamage === 'function') {
+        enemy.takeDamage(projectileDamage);
+      } else if (typeof enemy.die === 'function') {
+        enemy.die();
+      }
 
+      // Lógica de Penetração (Fase 1)
       if (projectileDamage > enemyCurrentHP) {
-        // Armor-piercing: projétil continua com dano reduzido.
+        // Matou e sobrou dano: atravessa enfraquecido
         poop.damage = projectileDamage - enemyCurrentHP;
+        if (poop.auraFX) {
+            poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0);
+        }
       } else {
-        poop.explode();
+        // Inimigo absorveu o impacto: Cocô some sem explodir
+        poop.destroy();
       }
     };
 
-    enemyGroups.forEach(group => {
+    const poopEnemyGroups = [...birdEnemyGroups, this.enemyProjectiles];
+    poopEnemyGroups.forEach(group => {
       this.physics.add.overlap(this.poops, group, handlePoopHit);
     });
 
@@ -394,6 +406,7 @@ export default class Phase2Scene extends Phaser.Scene {
     for (let i = 0; i < (recipe.fairies || 0); i++) this.spawnQueue.push('fairy');
     for (let i = 0; i < (recipe.mushrooms || 0); i++) this.spawnQueue.push('mushroom');
     for (let i = 0; i < (recipe.bees || 0); i++) this.spawnQueue.push('bee');
+    for (let i = 0; i < (recipe.flickers || 0); i++) this.spawnQueue.push('flicker');
     for (let i = 0; i < (recipe.fruits || 0); i++) this.spawnQueue.push('fruit');
     for (let i = 0; i < (recipe.coins || 0); i++) this.spawnQueue.push('coin');
     Phaser.Utils.Array.Shuffle(this.spawnQueue);
@@ -413,23 +426,42 @@ export default class Phase2Scene extends Phaser.Scene {
 
     switch (type) {
       case 'orange': {
-        const orange = new Orange(this, w + 100, h - 180);
+        const spawnSide = Phaser.Math.Between(0, 1);
+        const spawnX = spawnSide === 0 ? -500 : w + 500;
+        const orange = new Orange(this, spawnX, h - 60); // Ajustado para o ground
+        if (this.currentRound >= 3) orange.upgrade();
         this.oranges.add(orange);
-        this.physics.add.collider(orange, this.ground);
         break;
       }
       case 'fairy': {
-        this.fairies.add(new Fairy(this, w + 200, Phaser.Math.Between(120, h - 280)));
+        const fairy = new Fairy(this, w + 200, Phaser.Math.Between(120, h - 280));
+        if (this.currentRound >= 3) fairy.upgrade();
+        this.fairies.add(fairy);
         break;
       }
       case 'mushroom': {
         const mushroom = new Mushroom(this, w + 100, h - 90);
         this.mushrooms.add(mushroom);
         this.physics.add.collider(mushroom, this.ground);
+        
+        mushroom.upgrade();
+        if (this.currentRound >= 3) mushroom.ultimateUpgrade();
         break;
       }
       case 'bee': {
-        this.bees.add(new Bee(this, w + 200, Phaser.Math.Between(100, h - 320)));
+        const bee = new Bee(this, w + 200, Phaser.Math.Between(100, h - 320));
+        this.bees.add(bee);
+        
+        bee.upgrade();
+        if (this.currentRound >= 3) bee.ultimateUpgrade();
+        break;
+      }
+      case 'flicker': {
+        const flicker = new Flicker(this, w + 200, Phaser.Math.Between(100, h - 200));
+        this.flickers.add(flicker);
+        
+        flicker.upgrade();
+        if (this.currentRound >= 3) flicker.ultimateUpgrade();
         break;
       }
       case 'fruit': {

@@ -50,7 +50,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     // Altera a hitbox padrão de quadrado para Círculo (Raio 8, pois a imagem original tem 16x16)
     if (this.body) {
         this.body.setAllowGravity(false);
-        this.body.setCircle(8, 0, 0); 
+        this.body.setCircle(7, 0, 0); 
     }
 
     this.shields = 0; 

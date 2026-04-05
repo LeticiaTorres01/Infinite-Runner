@@ -21,7 +21,6 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
     this.scoreValue = 100;
     this.isDead = false;
     
-    // Estados: 'WALKING', 'JUMPING', 'STUNNED'
     this.currentState = 'WALKING';
     
     const centerX = scene.scale.width / 2;
@@ -37,25 +36,22 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
     this.stunTimer = 0;
     this.stunDuration = 1000;
 
-    // Persistência: Quantas vezes ele vai "bater" nas bordas antes de sair definitivamente
-    this.maxBounces = 2; 
+    this.maxBounces = 1; // Rebate apenas uma vez antes de sair
     this.bounceCount = 0;
 
     this.play('mushroom_run_anim');
 
     this.isUpgraded = false;
-    this.hasDoubleJumped = false; // Controle do pulo duplo
+    this.isUltimate = false;
   }
 
   upgrade() {
+    if (this.isUpgraded) return;
     this.isUpgraded = true;
-    this.hp = 20; // Mais vida
-    this.stunDuration = 500; // Tempo de stun reduzido pela metade
+    this.hp = 20; 
+    this.stunDuration = 500; 
     
-    // Aura Laranja/Dourada intensa
     this.glowFX = this.preFX.addGlow(0xff8800, 4, 1, false, 0.1, 10);
-    
-    // Tween de pulsação de energia constante
     this.scene.tweens.add({
         targets: this.glowFX,
         outerStrength: 10,
@@ -64,6 +60,17 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
         repeat: -1,
         ease: 'Sine.easeInOut'
     });
+  }
+
+  ultimateUpgrade() {
+    this.upgrade();
+    this.isUltimate = true;
+    this.hp = 35;
+    this.walkSpeed = 220;
+    
+    // Aura Roxa Ultimate
+    if (this.glowFX) this.glowFX.destroy();
+    this.glowFX = this.preFX.addGlow(0x9900ff, 6, 2, false, 0.1, 10);
   }
 
   static preload(scene) {
@@ -93,6 +100,12 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
     if (this.hp <= 0) {
         this.die();
     } else {
+        // Versão Ultimate não fica atordoada
+        if (this.isUltimate) {
+            this.setTint(0xff0000);
+            this.scene.time.delayedCall(100, () => this.clearTint());
+            return;
+        }
         this.currentState = 'STUNNED';
         this.stunTimer = this.stunDuration;
         this.body.setVelocityX(0);
@@ -102,8 +115,6 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
 
   update(bird, time, delta) {
     if (!this.active) return;
-    
-    // Se estiver morto, ele só obedece à física. Destrói apenas quando sair muito da tela.
     if (this.isDead) {
         if (this.x < -300 || this.x > this.scene.scale.width + 300 || this.y > this.scene.scale.height + 200) {
             this.destroy();
@@ -114,16 +125,11 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
     const onGround = this.body && (this.body.blocked.down || this.body.touching.down);
     const screenWidth = this.scene.scale.width;
 
-    // Lógica de mudança de direção ao atingir bordas da tela
     if (this.bounceCount < this.maxBounces) {
         if (this.x < 100 && this.direction === -1) {
-            this.direction = 1;
-            this.bounceCount++;
-            this.setFlipX(true);
+            this.direction = 1; this.bounceCount++; this.setFlipX(true);
         } else if (this.x > screenWidth - 100 && this.direction === 1) {
-            this.direction = -1;
-            this.bounceCount++;
-            this.setFlipX(false);
+            this.direction = -1; this.bounceCount++; this.setFlipX(false);
         }
     }
 
@@ -148,7 +154,6 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
             this.walkTimer -= delta;
             if (this.walkTimer <= 0 && onGround) {
                 this.currentState = 'JUMPING';
-                this.hasDoubleJumped = false; // Reseta o pulo duplo
                 this.body.setVelocityY(this.jumpPowerY);
                 this.body.setVelocityX(this.jumpPowerX * this.direction);
                 this.play('mushroom_attack_anim');
@@ -156,49 +161,43 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
             break;
 
         case 'JUMPING':
-            // Mantém movimento horizontal no ar
             this.body.setVelocityX(this.jumpPowerX * this.direction);
 
             if (onGround && this.body.velocity.y >= 0) {
-                if (this.isUpgraded && !this.hasDoubleJumped) {
-                    // Executa o Pulo Duplo imediatamente e mais alto
-                    this.hasDoubleJumped = true;
-                    this.body.setVelocityY(this.jumpPowerY * 1.3); 
-                    this.play('mushroom_attack_anim');
+                const maxJumps = this.isUltimate ? 3 : (this.isUpgraded ? 2 : 1);
+                
+                if (this.jumpCount < maxJumps) {
+                    // Pula novamente imediatamente ao tocar o chão
+                    this.jumpCount++;
+                    // O segundo e terceiro pulos são progressivamente mais altos (1.3x e 1.5x)
+                    const powerMult = this.jumpCount === 2 ? 1.3 : 1.5;
+                    this.body.setVelocityY(this.jumpPowerY * powerMult);
+                    this.body.setVelocityX(this.jumpPowerX * this.direction);
+                    this.play('mushroom_attack_anim', true);
                 } else {
-                    // Pouso final, volta a andar
+                    // Terminou a sequência de pulos
                     this.currentState = 'WALKING';
-                    this.walkTimer = this.walkDuration;
-                    this.body.setVelocityX(this.walkSpeed * this.direction);
+                    this.jumpCount = 0;
+                    this.walkTimer = this.isUltimate ? 300 : (this.isUpgraded ? 800 : 1500); 
                     this.play('mushroom_run_anim');
                 }
             }
             break;
     }
 
-    if (this.x < -1000 || this.x > screenWidth + 1000) {
-      this.destroy();
-    }
+    if (this.x < -1000 || this.x > screenWidth + 1000) this.destroy();
   }
 
   die() {
     if (this.isDead) return;
     this.isDead = true;
-
-    // FIX: Entrega a XP e o Score para o Pássaro
     if (this.scene.bird && !this.scene.bird.isDead) {
         this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
     }
-
-    if (this.anims) this.anims.stop();
     if (this.body) {
-        // FIX: Afetado pela gravidade e arrastado pelo cenário
         this.body.setAllowGravity(true);
-        this.body.setVelocityX(-200); // Movimento da floresta
-        // Mantemos a colisão ativada para ele quicar/bater no chão e não varar o mapa
+        this.body.setVelocityX(-200); 
     }
     this.play('mushroom_die_anim');
-    
-    // Removido o this.once('animationcomplete'...) para ele não sumir antes de sair da tela
   }
 }
