@@ -16,7 +16,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(27, 29);
     }
 
-    this.hp = 10;
+    this.hp = 8;
     this.xpValue = 40;
     this.scoreValue = 100;
     this.isDead = false;
@@ -35,6 +35,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
     this.walkDuration = 1500; 
     this.stunTimer = 0;
     this.stunDuration = 1000;
+    this.jumpCount = 0;
 
     this.maxBounces = 1; // Rebate apenas uma vez antes de sair
     this.bounceCount = 0;
@@ -108,8 +109,13 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
         }
         this.currentState = 'STUNNED';
         this.stunTimer = this.stunDuration;
-        this.body.setVelocityX(0);
-        this.play('mushroom_stun_anim');
+        this.jumpCount = 0; 
+        
+        // CORREÇÃO: Para o pulo imediatamente e é levado pelo mapa
+        this.body.setVelocityY(0);
+        this.body.setVelocityX(-200); 
+        
+        this.play('mushroom_stun_anim', true);
     }
   }
 
@@ -135,11 +141,15 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
 
     switch (this.currentState) {
         case 'STUNNED':
+            // CORREÇÃO: Mantém sendo levado pelo mapa enquanto atordoado
+            this.body.setVelocityX(-200);
+            
             this.stunTimer -= delta;
             if (this.stunTimer <= 0) {
                 this.currentState = 'WALKING';
                 this.walkTimer = this.walkDuration;
                 this.play('mushroom_run_anim');
+                this.body.setVelocityX(0); 
             }
             break;
 
@@ -154,6 +164,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
             this.walkTimer -= delta;
             if (this.walkTimer <= 0 && onGround) {
                 this.currentState = 'JUMPING';
+                this.jumpCount = 1; // Primeiro pulo
                 this.body.setVelocityY(this.jumpPowerY);
                 this.body.setVelocityX(this.jumpPowerX * this.direction);
                 this.play('mushroom_attack_anim');
@@ -170,6 +181,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
                     // Pula novamente imediatamente ao tocar o chão
                     this.jumpCount++;
                     // O segundo e terceiro pulos são progressivamente mais altos (1.3x e 1.5x)
+                    // Agora o jumpCount será 2 para o segundo pulo e 3 para o terceiro
                     const powerMult = this.jumpCount === 2 ? 1.3 : 1.5;
                     this.body.setVelocityY(this.jumpPowerY * powerMult);
                     this.body.setVelocityX(this.jumpPowerX * this.direction);

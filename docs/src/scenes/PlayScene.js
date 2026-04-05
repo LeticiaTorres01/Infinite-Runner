@@ -91,6 +91,7 @@ export default class PlayScene extends Phaser.Scene {
     // SOUNDTRACK
     this.load.audio('bgm_pre_start', 'assets/soundtrack/pre-start.mp3');
     this.load.audio('bgm_phase1', 'assets/soundtrack/phase1.mp3');
+    this.load.audio('bgm_phase2', 'assets/soundtrack/phase2.mp3');
     this.load.audio('bgm_pause', 'assets/soundtrack/pause.mp3');
   }
 
@@ -159,7 +160,6 @@ export default class PlayScene extends Phaser.Scene {
     this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
     this.events.on('updateMaxLives', (maxLives) => this.rebuildHeartsHUD(maxLives));
 
-    // NOVO SISTEMA DE PENETRAÇÃO DO PROJÉTIL
     const handlePoopHit = (poop, enemy) => {
         if (enemy.isDead) return;
 
@@ -195,14 +195,12 @@ export default class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(this.poops, this.bees, handlePoopHit);
     this.physics.add.overlap(this.poops, this.oranges, handlePoopHit);
 
-    // COLISÃO COM O CHÃO (Ativa a explosão em área para pegar inimigos próximos)
     this.physics.add.collider(this.poops, this.ground, (poop, ground) => {
         if (!poop.isExploding) {
             poop.explode();
         }
     });
 
-    // NOVO SISTEMA DE COLISÃO DO PÁSSARO COM INIMIGOS
     const handleEnemyCollision = (bird, enemy) => {
         if (enemy.isDead || bird.isDead) return;
 

@@ -89,6 +89,13 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
   takeDamage(amount = 1) {
     if (this.isDead) return;
     this.hp -= amount;
+    
+    // Feedback visual de dano: pisca vermelho
+    this.setTint(0xff0000);
+    this.scene.time.delayedCall(100, () => {
+        if (this.active) this.clearTint();
+    });
+
     if (this.hp <= 0) {
       this.die();
     }
