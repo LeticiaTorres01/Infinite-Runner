@@ -55,6 +55,8 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
 
     this.shields = 0; 
     this.storedShields = 0; // Novo: contador de escudos guardados
+    this.storedHeals = 0; 
+    this.healKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
     // HABILIDADE DE DASH/ATAQUE ESPECIAL
     this.canDash = false; // Ativado no Level 3
@@ -151,6 +153,28 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.scene.events.emit('updateStoredShields', this.storedShields);
   }
 
+  collectHealItem() {
+    if (this.isDead) return;
+    this.storedHeals++;
+    this.scene.events.emit('updateStoredHeals', this.storedHeals);
+  }
+
+  useHeal() {
+    if (this.isDead || this.storedHeals <= 0 || this.lives >= this.maxLives) return;
+    
+    this.storedHeals--;
+    this.lives = this.lives + 3;
+    
+    // Efeito visual de cura (Glow verde rápido)
+    const healFX = this.preFX.addGlow(0x00ff00, 6, 0, false, 0.1, 10);
+    this.scene.time.delayedCall(500, () => {
+        if (healFX) healFX.destroy();
+    });
+    
+    this.notifyHUD();
+    this.scene.events.emit('updateStoredHeals', this.storedHeals);
+  }
+
   useShield() {
     if (this.isDead || this.storedShields <= 0 || this.shields > 0) return;
     
@@ -197,6 +221,10 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
       this.level++;
       this.xp -= this.xpNextLevel;
       
+      // NOVO: Aumenta a quantidade de XP necessária para o próximo nível
+      // Nível 2 vai exigir 150, Nível 3 vai exigir 200, Nível 4: 250, etc.
+      this.xpNextLevel = 100 + ((this.level - 1) * 50);
+
       if (this.maxLives < 6) this.maxLives++;
       this.lives = this.maxLives;
       
@@ -362,6 +390,11 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     // Lógica para usar escudo
     if (Phaser.Input.Keyboard.JustDown(this.shieldKey)) {
         this.useShield();
+    }
+
+    // NOVO: Lógica para usar Cura
+    if (Phaser.Input.Keyboard.JustDown(this.healKey)) {
+        this.useHeal();
     }
 
     // Lógica para usar Dash

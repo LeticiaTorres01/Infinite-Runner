@@ -237,7 +237,13 @@ export default class Phase2Scene extends Phaser.Scene {
 
     // SISTEMA DE TIRO (COCÔ) VS INIMIGOS
     const handlePoopHit = (poop, enemy) => {
-      if (!poop.active || poop.isExploding || !enemy.active || enemy.isDead) return;
+      if (!poop.active || !enemy.active || enemy.isDead) return;
+
+      // Se for uma explosão, garante que só dá dano UMA VEZ em cada inimigo
+      if (poop.isExploding) {
+          if (poop.hitEnemies && poop.hitEnemies.has(enemy)) return;
+          if (poop.hitEnemies) poop.hitEnemies.add(enemy);
+      }
 
       const projectileDamage = poop.damage || 1;
       const enemyCurrentHP = Math.max(enemy.hp || 1, 1);
@@ -248,16 +254,18 @@ export default class Phase2Scene extends Phaser.Scene {
         enemy.die();
       }
 
-      // Lógica de Penetração (Fase 1)
-      if (projectileDamage > enemyCurrentHP) {
-        // Matou e sobrou dano: atravessa enfraquecido
-        poop.damage = projectileDamage - enemyCurrentHP;
-        if (poop.auraFX) {
-            poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0);
+      // Regra de Penetração e Destruição (Apenas para o projétil em voo)
+      if (!poop.isExploding) {
+        if (projectileDamage > enemyCurrentHP) {
+          // Atravessa o inimigo
+          poop.damage = projectileDamage - enemyCurrentHP;
+          if (poop.auraFX) {
+              poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0);
+          }
+        } else {
+          // Absorvido: some sem explodir
+          poop.destroy();
         }
-      } else {
-        // Inimigo absorveu o impacto: Cocô some sem explodir
-        poop.destroy();
       }
     };
 

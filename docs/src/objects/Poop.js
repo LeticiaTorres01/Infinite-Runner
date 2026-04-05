@@ -81,6 +81,9 @@ export default class Poop extends Phaser.Physics.Arcade.Sprite {
     if (this.isExploding) return;
     this.isExploding = true;
     
+    // NOVO: Conjunto para rastrear inimigos atingidos por ESTA explosão (para dar dano apenas 1 vez por alvo)
+    this.hitEnemies = new Set();
+    
     // Level 1 não explode
     if (this.birdLevel <= 1) {
         this.destroy();

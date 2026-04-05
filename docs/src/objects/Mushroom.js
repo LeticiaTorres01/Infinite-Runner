@@ -17,7 +17,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.hp = 8;
-    this.xpValue = 40;
+    this.xpValue = 20; // REDUZIDO DE 40 PARA 20
     this.scoreValue = 100;
     this.isDead = false;
     
@@ -49,7 +49,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
   upgrade() {
     if (this.isUpgraded) return;
     this.isUpgraded = true;
-    this.hp = 20; 
+    this.hp = 12; // REDUZIDO DE 20 PARA 12 (4 hits de Dash no Level 4)
     this.stunDuration = 500; 
     
     this.glowFX = this.preFX.addGlow(0xff8800, 4, 1, false, 0.1, 10);

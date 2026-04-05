@@ -6,6 +6,7 @@ import Flicker from '../objects/Flicker.js';
 import Orange from '../objects/Orange.js';
 import Fairy from '../objects/Fairy.js';
 import BlueCoin from '../objects/BlueCoin.js';
+import RedCoin from '../objects/RedCoin.js';
 import GoldCoin from '../objects/GoldCoin.js';
 import Fruit from '../objects/Fruit.js';
 import MagicProjectile from '../objects/MagicProjectile.js';
@@ -39,17 +40,109 @@ export default class PlayScene extends Phaser.Scene {
     this.isRoundTransitioning = false; 
 
     this.roundRecipes = [
-        // --- INTRODUÇÃO (Apresentação espaçada) ---
-        // Round 1: Batismo. Tempo longo e poucos monstros resistentes.
+        // Round 1: Continua igual, perfeito para dar exatos 100 XP e levar ao Lvl 2.
         { round: 1, flickers: 10, mushrooms: 0, bees: 0, oranges: 0, coins: 2, spawnDelay: 8000 },
-        // Round 2: Apenas Cogumelos. Ensina que o perigo vem de baixo.
-        { round: 2, flickers: 0, mushrooms: 8, bees: 0, coins: 2, spawnDelay: 7000 },
-        // Round 3: Apenas Abelhas. Ensina a mecânica de investida (dash) vinda do alto.
-        { round: 3, flickers: 0, mushrooms: 0, bees: 6, coins: 3, spawnDelay: 6000 },
+        
+        // Round 2: NOVO MODELO SCRIPTADO (Comandos em ordem cronológica)
+        { 
+            round: 2, 
+            scripted: true, 
+            sequence: [
+                // 1. Apresenta que ele está mais forte (3 Flickers normais)
+                { type: 'flicker', delay: 2000 },
+                { type: 'flicker', delay: 2000 },
+                { type: 'flicker', delay: 2000 },
+                
+                // 2. Espera a tela ficar 100% limpa
+                { type: 'wait_clear' },
+                
+                // 3. Nasce 3 cogumelos com LONGOS intervalos (5 segundos cada)
+                { type: 'mushroom', delay: 5000 },
+                { type: 'mushroom', delay: 5000 },
+                { type: 'mushroom', delay: 5000 },
+                
+                // 4. Espera a tela ficar 100% limpa (seja por morte ou por saírem da tela)
+                { type: 'wait_clear' },
+                
+                // 5. Apresenta as abelhas (3 segundos de intervalo)
+                { type: 'bee', delay: 3000 },
+                { type: 'bee', delay: 3000 },
+                { type: 'bee', delay: 3000 },
+                
+                // 6. Fim do round (Garante que só acaba quando a tela limpar)
+                { type: 'wait_clear' }
+            ]
+        },
+        // Round 3: Upa para Lvl 3, ganha escudo, e enfrenta 3 ondas conjuntas.
+        { 
+            round: 3, 
+            scripted: true, 
+            sequence: [
+                // 1. 5 Flickers para upar para o Lvl 3 e curar
+                { type: 'flicker', delay: 1000 },
+                { type: 'flicker', delay: 1000 },
+                { type: 'flicker', delay: 1000 },
+                { type: 'flicker', delay: 1000 },
+                { type: 'flicker', delay: 1000 },
+                
+                { type: 'wait_clear' },
+                
+                // 2. Apresenta a Blue Coin (Escudo) isolada
+                { type: 'blue_coin', delay: 3000 },
+                
+                // 3. As 3 ondas conjuntas a cada 15 segundos + Moedas Douradas
+                // ONDA 1
+                { type: 'mushroom', delay: 0 },
+                { type: 'bee', delay: 0 },
+                { type: 'gold_coin', delay: 500 },
+                { type: 'gold_coin', delay: 14500 }, // Cooldown de quase 15s para a próxima onda
+                
+                // ONDA 2
+                { type: 'mushroom', delay: 0 },
+                { type: 'bee', delay: 0 },
+                { type: 'gold_coin', delay: 500 },
+                { type: 'gold_coin', delay: 14500 },
+                
+                // ONDA 3
+                { type: 'mushroom', delay: 0 },
+                { type: 'bee', delay: 0 },
+                { type: 'gold_coin', delay: 500 },
+                { type: 'gold_coin', delay: 0 }, // Sendo a última, não precisa do longo delay
+                
+                { type: 'wait_clear' }
+            ]
+        },
+        { 
+            round: 4, 
+            scripted: true, 
+            sequence: [
+                // 1. A Barreira (Todos com delay 0 nascem no mesmo instante, mesma posição X, posições Y diferentes)
+                { type: 'flicker', x: 2100, y: 150, delay: 0 },
+                { type: 'flicker', x: 2100, y: 350, delay: 0 },
+                { type: 'flicker', x: 2100, y: 550, delay: 0 },
+                { type: 'flicker', x: 2100, y: 750, delay: 0 },
+                { type: 'flicker', x: 2100, y: 950, delay: 3000 }, // O último dá o tempo de espera
+                
+                { type: 'wait_clear' },
+                
+                // 2. Apresenta o novo perigo: O Cogumelo Evoluído (sozinho para ele entender que é tanque)
+                { type: 'mushroom', upgraded: true, delay: 4000 },
+                { type: 'mushroom', upgraded: true, delay: 4000 },
+                
+                { type: 'wait_clear' },
+                
+                // 3. A Recompensa e o teste de sinergia
+                { type: 'flicker', delay: 1000 },
+                { type: 'flicker', delay: 1000 },
+                { type: 'red_coin', delay: 1000 }, // Moeda de cura!
+                { type: 'bee', delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                
+                { type: 'wait_clear' }
+            ]
+        },
 
         // --- SINERGIA (Misturando os perigos) ---
-        // Round 4: Parede estática + Puladores.
-        { round: 4, flickers: 6, mushrooms: 6, bees: 0, coins: 3, spawnDelay: 5000 },
         // Round 5: O Ataque aéreo e terrestre (O jogador precisa ficar no meio da tela).
         { round: 5, flickers: 0, mushrooms: 8, bees: 8, coins: 4, spawnDelay: 4500 },
         // Round 6: O Trio. Todos os monstros aparecem juntos pela primeira vez.
@@ -71,11 +164,12 @@ export default class PlayScene extends Phaser.Scene {
 
   preload() {
     Bird.preload(this); Mushroom.preload(this); Bee.preload(this); Flicker.preload(this);
-    Orange.preload(this); Fairy.preload(this); BlueCoin.preload(this); GoldCoin.preload(this); Fruit.preload(this);
+    Orange.preload(this); Fairy.preload(this); BlueCoin.preload(this); RedCoin.preload(this); GoldCoin.preload(this); Fruit.preload(this);
     this.load.image('hearth', 'assets/hearth.png');
     this.load.image('hearth_dead', 'assets/item1167.png');
     this.load.image('shield_icon', 'assets/item199.png');
     this.load.image('poop_icon', 'assets/item1193.png');
+    this.load.image('heal_item_icon', 'assets/item535.png'); // Ícone da HUD
     this.load.image('ceu_sombrio', 'assets/ceu_sombrio.jpg');
     this.load.image('bg_cielo', 'assets/Layer_0009_2.png');
     this.load.image('bg_arvores_fundo', 'assets/Layer_0008_3.png');
@@ -105,7 +199,7 @@ export default class PlayScene extends Phaser.Scene {
 
     Bird.createAnimations(this); Mushroom.createAnimations(this); Bee.createAnimations(this);
     Flicker.createAnimations(this); Orange.createAnimations(this); Fairy.createAnimations(this);
-    BlueCoin.createAnimations(this); GoldCoin.createAnimations(this); Poop.createAnimations(this);
+    BlueCoin.createAnimations(this); RedCoin.createAnimations(this); GoldCoin.createAnimations(this); Poop.createAnimations(this);
 
     const addLayer = (key, speed, isLight = false) => {
       const texture = this.textures.get(key);
@@ -133,7 +227,7 @@ export default class PlayScene extends Phaser.Scene {
     this.physics.add.collider(this.bird, this.ground, () => { if (!this.bird.isDead) this.bird.takeDamage(); });
 
     this.mushrooms = this.add.group(); this.bees = this.add.group(); this.flickers = this.add.group();
-    this.coins = this.add.group(); this.goldCoins = this.add.group(); this.fruits = this.add.group();
+    this.coins = this.add.group(); this.redCoins = this.add.group(); this.goldCoins = this.add.group(); this.fruits = this.add.group();
     this.poops = this.add.group(); this.oranges = this.add.group();
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -152,6 +246,7 @@ export default class PlayScene extends Phaser.Scene {
     this.createHeartsHUD();
     this.createAmmoHUD();
     this.createShieldInventoryHUD();
+    this.createHealInventoryHUD();
     this.createProgressionHUD();
 
     this.events.on('updateLives', (data) => this.updateHeartsHUD(data));
@@ -161,30 +256,33 @@ export default class PlayScene extends Phaser.Scene {
     this.events.on('updateMaxLives', (maxLives) => this.rebuildHeartsHUD(maxLives));
 
     const handlePoopHit = (poop, enemy) => {
-        if (enemy.isDead) return;
+        if (enemy.isDead || !enemy.active) return;
 
-        const enemyCurrentHP = enemy.hp || 1; // Verifica a vida atual do monstro
+        // Se for uma explosão, garante que só dá dano UMA VEZ em cada inimigo
+        if (poop.isExploding) {
+            if (poop.hitEnemies && poop.hitEnemies.has(enemy)) return;
+            if (poop.hitEnemies) poop.hitEnemies.add(enemy);
+        }
+
+        const enemyCurrentHP = enemy.hp || 1; 
         
-        // 1. Causa o dano atual do cocô no inimigo
+        // Causa o dano do projétil/explosão
         if (typeof enemy.takeDamage === 'function') {
             enemy.takeDamage(poop.damage);
         } else {
             enemy.die();
         }
 
-        // 2. Verifica se o Cocô deve continuar atravessando ou sumir
-        // Segundo a regra: Explosão AoE APENAS no solo.
+        // Regra de Penetração e Destruição (Apenas para o projétil em voo)
         if (!poop.isExploding) {
             if (poop.damage > enemyCurrentHP) {
-                // PENETROU! Matou o bicho e ainda sobrou dano. Continua caindo, mas mais fraco.
+                // Atravessa o inimigo
                 poop.damage -= enemyCurrentHP;
-                
-                // Enfraquece o brilho da aura para mostrar que perdeu força
                 if (poop.auraFX) {
                     poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0); 
                 }
             } else {
-                // O bicho absorveu todo o dano: O projétil some sem explodir e sem gerar hitbox extra
+                // Absorvido: some sem explodir
                 poop.destroy(); 
             }
         }
@@ -222,6 +320,7 @@ export default class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(this.bird, this.mushrooms, handleEnemyCollision);
     this.physics.add.overlap(this.bird, this.oranges, handleEnemyCollision);
 
+    this.physics.add.overlap(this.bird, this.redCoins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(bird); } });
     this.physics.add.overlap(this.bird, this.coins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(); bird.collectShieldItem(); bird.gainExperience(5, 50); } });
     this.physics.add.overlap(this.bird, this.goldCoins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(bird); } });
     this.physics.add.overlap(this.bird, this.fruits, (bird, fruit) => { if (!bird.isDead && !fruit.isCollected) { fruit.collect(bird); } });
@@ -235,6 +334,7 @@ export default class PlayScene extends Phaser.Scene {
     this.hearts.forEach(h => h.setAlpha(alpha)); this.shieldIcons.forEach(s => s.setAlpha(alpha));
     if (this.ammoIcon) this.ammoIcon.setAlpha(alpha); if (this.ammoText) this.ammoText.setAlpha(alpha);
     if (this.shieldInvIcon) this.shieldInvIcon.setAlpha(alpha); if (this.shieldInvText) this.shieldInvText.setAlpha(alpha);
+    if (this.healInvIcon) this.healInvIcon.setAlpha(alpha); if (this.healInvText) this.healInvText.setAlpha(alpha);
     if (this.scoreText) this.scoreText.setAlpha(alpha); if (this.levelText) this.levelText.setAlpha(alpha);
     if (this.xpBarBgGraphics) this.xpBarBgGraphics.setAlpha(alpha);
     if (this.xpBarGraphics) this.xpBarGraphics.setAlpha(alpha);
@@ -268,7 +368,7 @@ export default class PlayScene extends Phaser.Scene {
             });
 
             this.tweens.add({
-                targets: [ ...this.hearts, ...this.shieldIcons, this.ammoIcon, this.ammoText, this.shieldInvIcon, this.shieldInvText, this.scoreText, this.levelText, this.xpBarBgGraphics, this.xpBarGraphics ],
+                targets: [ ...this.hearts, ...this.shieldIcons, this.ammoIcon, this.ammoText, this.shieldInvIcon, this.shieldInvText, this.healInvIcon, this.healInvText, this.scoreText, this.levelText, this.xpBarBgGraphics, this.xpBarGraphics ],
                 alpha: 1, duration: 1500, ease: 'Linear'
             });
         }
@@ -283,63 +383,113 @@ export default class PlayScene extends Phaser.Scene {
     const w = 1920; const h = 1080;
     const roundText = this.add.text(w / 2, h / 2, `ROUND ${this.currentRound}`, { fontFamily: 'KenneyRocket', fontSize: '100px', fill: '#fff', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setDepth(1000);
     this.tweens.add({ targets: roundText, alpha: 0, y: h / 2 - 200, duration: 2500, ease: 'Power2', onComplete: () => roundText.destroy() });
-    this.isSpawningFinished = false; this.isRoundTransitioning = false; this.spawnQueue = [];
-    for (let i = 0; i < recipe.flickers; i++) this.spawnQueue.push('flicker');
-    for (let i = 0; i < recipe.mushrooms; i++) this.spawnQueue.push('mushroom');
-    for (let i = 0; i < recipe.bees; i++) this.spawnQueue.push('bee');
-    for (let i = 0; i < (recipe.oranges || 0); i++) this.spawnQueue.push('orange');
-    for (let i = 0; i < recipe.coins; i++) this.spawnQueue.push('coin');
-    Phaser.Utils.Array.Shuffle(this.spawnQueue); this.processSpawnQueue();
+    
+    this.isSpawningFinished = false; 
+    this.isRoundTransitioning = false; 
+    this.spawnQueue = [];
+
+    // Lógica para verificar se o Round tem um script pronto
+    if (recipe.scripted) {
+        this.spawnQueue = [...recipe.sequence]; // Clona a sequência
+    } else {
+        // Logica clássica para os rounds antigos
+        for (let i = 0; i < recipe.flickers; i++) this.spawnQueue.push({ type: 'flicker' });
+        for (let i = 0; i < recipe.mushrooms; i++) this.spawnQueue.push({ type: 'mushroom' });
+        for (let i = 0; i < recipe.bees; i++) this.spawnQueue.push({ type: 'bee' });
+        for (let i = 0; i < (recipe.oranges || 0); i++) this.spawnQueue.push({ type: 'orange' });
+        for (let i = 0; i < recipe.coins; i++) this.spawnQueue.push({ type: 'coin' });
+        Phaser.Utils.Array.Shuffle(this.spawnQueue); 
+    }
+    
+    this.processSpawnQueue();
   }
 
   processSpawnQueue() {
     if (this.isGameOver || this.isPaused) return;
-    if (this.spawnQueue.length === 0) { this.isSpawningFinished = true; return; }
     
-    const type = this.spawnQueue.shift(); const w = 1920; const h = 1080;
+    if (this.spawnQueue.length === 0) { 
+        this.isSpawningFinished = true; 
+        return; 
+    }
+    
+    const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
+    const step = this.spawnQueue[0]; // Olha para o próximo passo sem tirar da fila
+
+    // --- LÓGICA DE ESPERA DE TELA LIMPA ---
+    if (step.type === 'wait_clear') {
+        const activeEnemies = this.flickers.countActive(true) + 
+                              this.mushrooms.countActive(true) + 
+                              this.bees.countActive(true) + 
+                              this.oranges.countActive(true);
+        if (activeEnemies > 0) {
+            // Se ainda tem inimigo, tenta de novo em meio segundo
+            this.time.delayedCall(500, () => this.processSpawnQueue());
+            return;
+        } else {
+            // Tela limpa! Remove o 'wait_clear' da fila e avança para o próximo inimigo IMEDIATAMENTE
+            this.spawnQueue.shift();
+            // CORREÇÃO: Usamos um pequeno delay de 10ms apenas para garantir que a pilha de chamadas limpe
+            // e não dispare dois processos de spawn ao mesmo tempo.
+            this.time.delayedCall(10, () => this.processSpawnQueue());
+            return;
+        }
+    }
+
+    // --- LÓGICA DE SPAWN ---
+    this.spawnQueue.shift(); // Remove o monstro da fila
+    const type = step.type; 
+    const w = 1920; const h = 1080;
+    
     switch (type) {
         case 'flicker':
-            const fx = Phaser.Math.Between(w + 100, w + 800);
-            const fy = Phaser.Math.Between(100, h - 200);
+            // Se o step tiver x e y, usa eles. Se não, sorteia.
+            const fx = step.x || Phaser.Math.Between(w + 100, w + 800);
+            const fy = step.y || Phaser.Math.Between(100, h - 200);
             const f = new Flicker(this, fx, fy);
-            
-            // Upgrade no Round 6+
-            if (this.currentRound >= 6) f.upgrade();
-            
+            if (step.upgraded || this.currentRound >= 6) f.upgrade();
             this.flickers.add(f);
             break;
         case 'mushroom':
             const mx = (Phaser.Math.Between(0, 1) === 0) ? -200 : w + 200;
             const m = new Mushroom(this, mx, h - 100);
-            
-            // Lógica de Upgrade: Maior que o turno 3
-            if (this.currentRound > 3) {
-                m.upgrade();
-            }
-            
+            // Agora respeita se o script pediu a versão evoluída
+            if (step.upgraded || this.currentRound > 3) m.upgrade();
             this.mushrooms.add(m);
             this.physics.add.collider(m, this.ground);
             break;
         case 'bee':
             const b = new Bee(this, w + 100, Phaser.Math.Between(100, h - 300));
-            
-            // Lógica de Upgrade: Round 7 ou superior
-            if (this.currentRound >= 7) {
-                b.upgrade(); // Substitui a atribuição manual e o setTint
-            }
-            
+            if (this.currentRound >= 7) b.upgrade();
             this.bees.add(b);
             break;
         case 'orange':
             const ox = (Phaser.Math.Between(0, 1) === 0) ? -500 : w + 500;
-            const o = new Orange(this, ox, h - 180); this.oranges.add(o); this.physics.add.collider(o, this.ground); break;
-        case 'coin': this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); break;
+            const o = new Orange(this, ox, h - 180); 
+            this.oranges.add(o); 
+            this.physics.add.collider(o, this.ground); 
+            break;
+        case 'red_coin':
+            this.redCoins.add(new RedCoin(this, w + 200, Phaser.Math.Between(200, h - 300)));
+            break;
+        
+        // --- NOVO SISTEMA DE MOEDAS ---
+        case 'blue_coin': 
+            // Usa 'this.coins' que é o grupo preparado para as Blue Coins com mecânica de escudo
+            this.coins.add(new BlueCoin(this, w + 200, h / 2)); 
+            break;
+        case 'gold_coin':
+            // Usa 'this.goldCoins' que é o grupo das moedas de recompensa
+            this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); 
+            break;
+            
+        // Mantém 'coin' para retrocompatibilidade com os rounds antigos (4 a 10) que não foram roteirizados ainda
+        case 'coin': 
+            this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); 
+            break;
     }
 
-    // Busca a receita atual para aplicar o delay correto deste round (Tarefa 2)
-    const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
-    const currentDelay = recipe ? recipe.spawnDelay : 3000;
-
+    // Calcula o tempo até o próximo spawn
+    const currentDelay = (step.delay !== undefined) ? step.delay : (recipe ? recipe.spawnDelay : 3000);
     this.time.delayedCall(currentDelay, () => this.processSpawnQueue());
   }
 
@@ -452,6 +602,14 @@ export default class PlayScene extends Phaser.Scene {
     const h = 1080; const iconY = h - 30;
     this.shieldInvIcon = this.add.image(720, iconY, 'shield_item_icon').setScale(2).setDepth(500).setScrollFactor(0);
     this.shieldInvText = this.add.text(765, iconY, 'x 0', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#0ff', stroke: '#000', strokeThickness: 5 }).setOrigin(0, 0.5).setDepth(500).setScrollFactor(0);
+  }
+
+  createHealInventoryHUD() {
+    const h = 1080; const iconY = h - 30;
+    this.healInvIcon = this.add.image(920, iconY, 'heal_item_icon').setScale(2).setDepth(500).setScrollFactor(0);
+    this.healInvText = this.add.text(965, iconY, 'x 0', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#0f0', stroke: '#000', strokeThickness: 5 }).setOrigin(0, 0.5).setDepth(500).setScrollFactor(0);
+    
+    this.events.on('updateStoredHeals', (count) => { if (this.healInvText) this.healInvText.setText('x ' + count); });
   }
 
   updateShieldInventoryHUD(count) { if (this.shieldInvText) this.shieldInvText.setText('x ' + count); }
