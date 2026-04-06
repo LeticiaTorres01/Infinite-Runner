@@ -47,6 +47,24 @@ export default class Fairy extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
+  ultimateUpgrade() {
+    this.isUpgraded = true;
+    this.hp = 6; // Muito mais resistente (Ultimate)
+    this.attackCooldown = 500; // Sniping extremamente agressivo
+    
+    // Aura Dourada/Rosa (Padrão Ultimate)
+    if (this.glowFX) this.glowFX.destroy();
+    this.glowFX = this.preFX.addGlow(0xe600ac, 4, 0, false, 0.2, 12);
+    this.scene.tweens.add({
+        targets: this.glowFX,
+        outerStrength: 8,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+    });
+  }
+
   static preload(scene) {
     MagicProjectile.preload(scene);
     scene.load.spritesheet('fairy_idle', 'assets/Hurt (32 x 32).png', { frameWidth: 32, frameHeight: 32 });

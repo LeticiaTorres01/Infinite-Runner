@@ -36,10 +36,15 @@ export default class BlueCoin extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  collect() {
+  collect(bird) {
     if (this.isCollected) return;
     this.isCollected = true;
     
+    if (bird) {
+        bird.collectShieldItem();
+        bird.gainExperience(5, 50);
+    }
+
     // Efeito simples de coleta: sobe e desaparece
     this.scene.tweens.add({
       targets: this,

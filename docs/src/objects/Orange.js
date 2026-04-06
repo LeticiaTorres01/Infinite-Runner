@@ -69,6 +69,27 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
+  ultimateUpgrade() {
+    this.isUpgraded = true;
+    this.hp = 30; // Muito mais resistente
+    this.baseSpeed = 500; // Bem mais rápido
+    this.acceleration = 0.01;
+    this.xpValue = 150;
+    this.scoreValue = 500;
+    
+    // Aura Dourada/Rosa (Padrão Ultimate)
+    if (this.glowFX) this.glowFX.destroy();
+    this.glowFX = this.preFX.addGlow(0xe600ac, 4, 0, false, 0.2, 12);
+    this.scene.tweens.add({
+        targets: this.glowFX,
+        outerStrength: 8,
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+    });
+  }
+
   static preload(scene) {
     const sprites = [
       { key: 'orange_idle', path: 'assets/Orange_Idle.png' },

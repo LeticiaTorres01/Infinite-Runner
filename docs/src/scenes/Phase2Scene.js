@@ -10,6 +10,7 @@ import GoldCoin from '../objects/GoldCoin.js';
 import Fruit from '../objects/Fruit.js';
 import MagicProjectile from '../objects/MagicProjectile.js';
 import SwordBoss from '../objects/SwordBoss.js';
+import RedCoin from '../objects/RedCoin.js';
 
 export default class Phase2Scene extends Phaser.Scene {
   constructor() {
@@ -37,11 +38,85 @@ export default class Phase2Scene extends Phaser.Scene {
     this.isSpawningFinished = false;
     this.isRoundTransitioning = false;
     this.roundRecipes = [
-      { round: 1, oranges: 6, fairies: 0, mushrooms: 0, bees: 0, fruits: 3, coins: 2, spawnDelay: 2600 },
-      { round: 2, oranges: 0, fairies: 2, mushrooms: 0, bees: 0, fruits: 3, coins: 2, spawnDelay: 2400 },
-      { round: 3, oranges: 0, fairies: 0, mushrooms: 1, bees: 1, flickers: 1, fruits: 4, coins: 3, spawnDelay: 2100 },
-      { round: 4, oranges: 4, fairies: 4, mushrooms: 5, bees: 5, fruits: 4, coins: 4, spawnDelay: 1800 },
-      { round: 5, oranges: 6, fairies: 6, mushrooms: 6, bees: 6, fruits: 5, coins: 5, spawnDelay: 1500 }
+        // ROUND 1: Apresentação Flicker Ultimate
+        { 
+            round: 1, scripted: true, 
+            sequence: [
+                { type: 'flicker', ultimate: true, delay: 5000 },
+                { type: 'wait_clear' },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
+                { type: 'orange', delay: 2000 },
+                { type: 'blue_coin', delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
+        // ROUND 2: Apresentação Fairy e Bee Ultimate
+        { 
+            round: 2, scripted: true, 
+            sequence: [
+                { type: 'fairy', delay: 0 },
+                { type: 'wait_clear' }, // Espera a Fairy morrer como você pediu
+                { type: 'bee', ultimate: true, delay: 4000 },
+                { type: 'flicker', upgraded: true, delay: 0 },
+                { type: 'orange', delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
+        // ROUND 3: Mushroom Ultimate e Orange Ultimate
+        { 
+            round: 3, scripted: true, 
+            sequence: [
+                { type: 'mushroom', ultimate: true, delay: 2000 },
+                { type: 'orange', ultimate: true, delay: 5000 },
+                { type: 'wait_clear' },
+                { type: 'mushroom', ultimate: true, delay: 0 },
+                { type: 'orange', ultimate: true, delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
+        // ROUND 4: Calmaria antes do temporal (Mix longo, pouca densidade)
+        { 
+            round: 4, scripted: true, 
+            sequence: [
+                { type: 'flicker', upgraded: true, delay: 3000 },
+                { type: 'bee', upgraded: true, delay: 3000 },
+                { type: 'fairy', delay: 3000 },
+                { type: 'orange', delay: 3000 },
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
+        // ROUND 5: Fairy Ultimate e Variedade
+        { 
+            round: 5, scripted: true, 
+            sequence: [
+                { type: 'fairy', ultimate: true, delay: 2000 },
+                { type: 'flicker', ultimate: true, delay: 2000 },
+                { type: 'bee', ultimate: true, delay: 2000 },
+                { type: 'orange', ultimate: true, delay: 2000 },
+                { type: 'mushroom', ultimate: true, delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
+        // ROUND 6: Sobrevivência Total (Ondas Ultimate)
+        { 
+            round: 6, scripted: true, 
+            sequence: [
+                { type: 'flicker', ultimate: true, delay: 500 },
+                { type: 'bee', ultimate: true, delay: 500 },
+                { type: 'orange', ultimate: true, delay: 3000 },
+                { type: 'wait_clear' },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'mushroom', ultimate: true, delay: 4000 },
+                { type: 'wait_clear' },
+                // Final dramático antes do Boss
+                { type: 'flicker', ultimate: true, x: 2000, y: 200, delay: 0 },
+                { type: 'flicker', ultimate: true, x: 2000, y: 500, delay: 0 },
+                { type: 'flicker', ultimate: true, x: 2000, y: 800, delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        }
     ];
     this.onFairyShoot = null;
     this.debugKey = null;
@@ -68,6 +143,7 @@ export default class Phase2Scene extends Phaser.Scene {
     Fairy.preload(this);
     BlueCoin.preload(this);
     GoldCoin.preload(this);
+    RedCoin.preload(this);
     Fruit.preload(this);
     SwordBoss.preload(this);
     this.load.image('hearth', 'assets/hearth.png');
@@ -109,6 +185,7 @@ export default class Phase2Scene extends Phaser.Scene {
     Fairy.createAnimations(this);
     BlueCoin.createAnimations(this);
     GoldCoin.createAnimations(this);
+    RedCoin.createAnimations(this);
     SwordBoss.createAnimations(this);
 
     const addLayer = (key, speed, isLight = false) => {
@@ -279,9 +356,7 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.physics.add.overlap(this.bird, this.coins, (bird, coin) => {
       if (!bird.isDead && !coin.isCollected) {
-        coin.collect();
-        bird.collectShieldItem();
-        bird.gainExperience(5, 50);
+        coin.collect(bird);
       }
     });
     this.physics.add.overlap(this.bird, this.goldCoins, (bird, coin) => {
@@ -337,9 +412,13 @@ export default class Phase2Scene extends Phaser.Scene {
     if (this.ammoIcon) this.ammoIcon.setAlpha(alpha); if (this.ammoText) this.ammoText.setAlpha(alpha);
     if (this.shieldInvIcon) this.shieldInvIcon.setAlpha(alpha); if (this.shieldInvText) this.shieldInvText.setAlpha(alpha);
     if (this.healInvIcon) this.healInvIcon.setAlpha(alpha); if (this.healInvText) this.healInvText.setAlpha(alpha);
-    if (this.scoreText) this.scoreText.setAlpha(alpha); if (this.levelText) this.levelText.setAlpha(alpha);
+    if (this.scoreText) this.scoreText.setAlpha(alpha * 0.5); // Score sempre com metade da opacidade
+    if (this.levelText) this.levelText.setAlpha(alpha);
     if (this.xpBarBgGraphics) this.xpBarBgGraphics.setAlpha(alpha);
     if (this.xpBarGraphics) this.xpBarGraphics.setAlpha(alpha);
+    if (this.roundBarBg) this.roundBarBg.setAlpha(alpha * 0.6); // Respeita a transparência do Round
+    if (this.roundBarFill) this.roundBarFill.setAlpha(alpha * 0.8);
+    if (this.roundHeaderText) this.roundHeaderText.setAlpha(alpha * 0.8);
   }
 
   startCinematicIntro() {
@@ -361,16 +440,40 @@ export default class Phase2Scene extends Phaser.Scene {
             this.bird.setCollideWorldBounds(true);
           this.startRound();
 
+            // HUD Geral (Exceto Score e Round que têm alphas diferentes)
             this.tweens.add({
                 targets: [
                     ...this.hearts, ...this.shieldIcons,
                     this.ammoIcon, this.ammoText, 
                     this.shieldInvIcon, this.shieldInvText,
                     this.healInvIcon, this.healInvText,
-                    this.scoreText, this.levelText, 
-                    this.xpBarBgGraphics, this.xpBarGraphics
+                    this.levelText, 
+                    this.xpBarBgGraphics, this.xpBarGraphics,
+                    this.roundBarFill
                 ],
                 alpha: 1,
+                duration: 1500,
+                ease: 'Linear'
+            });
+
+            // Score semi-transparente
+            this.tweens.add({
+                targets: this.scoreText,
+                alpha: 0.5,
+                duration: 1500,
+                ease: 'Linear'
+            });
+
+            // Round Bar e Header (com suas transparências específicas)
+            this.tweens.add({
+                targets: [this.roundBarBg],
+                alpha: 0.6,
+                duration: 1500,
+                ease: 'Linear'
+            });
+            this.tweens.add({
+                targets: [this.roundHeaderText],
+                alpha: 0.8,
                 duration: 1500,
                 ease: 'Linear'
             });
@@ -404,85 +507,135 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.isSpawningFinished = false;
     this.isRoundTransitioning = false;
-    this.spawnQueue = [];
-
-    for (let i = 0; i < (recipe.oranges || 0); i++) this.spawnQueue.push('orange');
-    for (let i = 0; i < (recipe.fairies || 0); i++) this.spawnQueue.push('fairy');
-    for (let i = 0; i < (recipe.mushrooms || 0); i++) this.spawnQueue.push('mushroom');
-    for (let i = 0; i < (recipe.bees || 0); i++) this.spawnQueue.push('bee');
-    for (let i = 0; i < (recipe.flickers || 0); i++) this.spawnQueue.push('flicker');
-    for (let i = 0; i < (recipe.fruits || 0); i++) this.spawnQueue.push('fruit');
-    for (let i = 0; i < (recipe.coins || 0); i++) this.spawnQueue.push('coin');
-    Phaser.Utils.Array.Shuffle(this.spawnQueue);
+    
+    if (recipe.scripted) {
+        this.spawnQueue = [...recipe.sequence];
+    } else {
+        this.spawnQueue = [];
+        for (let i = 0; i < (recipe.oranges || 0); i++) this.spawnQueue.push({ type: 'orange' });
+        for (let i = 0; i < (recipe.fairies || 0); i++) this.spawnQueue.push({ type: 'fairy' });
+        for (let i = 0; i < (recipe.mushrooms || 0); i++) this.spawnQueue.push({ type: 'mushroom' });
+        for (let i = 0; i < (recipe.bees || 0); i++) this.spawnQueue.push({ type: 'bee' });
+        for (let i = 0; i < (recipe.flickers || 0); i++) this.spawnQueue.push({ type: 'flicker' });
+        for (let i = 0; i < (recipe.fruits || 0); i++) this.spawnQueue.push({ type: 'fruit' });
+        for (let i = 0; i < (recipe.coins || 0); i++) this.spawnQueue.push({ type: 'coin' });
+        Phaser.Utils.Array.Shuffle(this.spawnQueue);
+    }
+    
+    this.updateRoundHUD();
     this.processSpawnQueue();
   }
 
   processSpawnQueue() {
     if (this.isGameOver || this.isPaused || this.isBossSpawned) return;
+    
     if (this.spawnQueue.length === 0) {
       this.isSpawningFinished = true;
       return;
     }
 
-    const type = this.spawnQueue.shift();
+    const step = this.spawnQueue.shift();
+    const type = typeof step === 'string' ? step : step.type;
+    
+    // LÓGICA DE ESPERA (Tarefa 4)
+    if (type === 'wait_clear') {
+        const totalActiveEnemies = this.oranges.countActive(true)
+          + this.fairies.countActive(true)
+          + this.mushrooms.countActive(true)
+          + this.bees.countActive(true)
+          + this.flickers.countActive(true);
+
+        if (totalActiveEnemies === 0) {
+            this.updateRoundHUD();
+            this.processSpawnQueue(); // Se estiver limpo, segue imediatamente
+        } else {
+            // Se ainda houver inimigos, tenta novamente em 1 segundo
+            this.spawnQueue.unshift(step); // Devolve para a fila
+            this.time.delayedCall(1000, () => this.processSpawnQueue());
+        }
+        return;
+    }
+
     const w = 1920;
     const h = 1080;
 
     switch (type) {
       case 'orange': {
-        const spawnSide = Phaser.Math.Between(0, 1);
-        const spawnX = spawnSide === 0 ? -500 : w + 500;
-        const orange = new Orange(this, spawnX, h - 60); // Ajustado para o ground
-        if (this.currentRound >= 3) orange.upgrade();
+        const spawnX = step.x !== undefined ? step.x : (Phaser.Math.Between(0, 1) === 0 ? -500 : w + 500);
+        const orange = new Orange(this, spawnX, h - 60);
+        if (step.ultimate) orange.ultimateUpgrade();
+        else if (step.upgraded || this.currentRound >= 3) orange.upgrade();
         this.oranges.add(orange);
         break;
       }
       case 'fairy': {
-        const fairy = new Fairy(this, w + 200, Phaser.Math.Between(120, h - 280));
-        if (this.currentRound >= 3) fairy.upgrade();
+        const spawnX = step.x !== undefined ? step.x : w + 200;
+        const spawnY = step.y !== undefined ? step.y : Phaser.Math.Between(120, h - 280);
+        const fairy = new Fairy(this, spawnX, spawnY);
+        if (step.ultimate) fairy.ultimateUpgrade();
+        else if (step.upgraded || this.currentRound >= 3) fairy.upgrade();
         this.fairies.add(fairy);
         break;
       }
       case 'mushroom': {
-        const mushroom = new Mushroom(this, w + 100, h - 90);
+        const spawnX = step.x !== undefined ? step.x : w + 100;
+        const mushroom = new Mushroom(this, spawnX, h - 90);
         this.mushrooms.add(mushroom);
         this.physics.add.collider(mushroom, this.ground);
         
-        mushroom.upgrade();
-        if (this.currentRound >= 3) mushroom.ultimateUpgrade();
+        if (step.ultimate) mushroom.ultimateUpgrade();
+        else if (step.upgraded || this.currentRound >= 3) mushroom.upgrade();
         break;
       }
       case 'bee': {
-        const bee = new Bee(this, w + 200, Phaser.Math.Between(100, h - 320));
+        const spawnX = step.x !== undefined ? step.x : w + 200;
+        const spawnY = step.y !== undefined ? step.y : Phaser.Math.Between(100, h - 320);
+        const bee = new Bee(this, spawnX, spawnY);
         this.bees.add(bee);
         
-        bee.upgrade();
-        if (this.currentRound >= 3) bee.ultimateUpgrade();
+        if (step.ultimate) bee.ultimateUpgrade();
+        else if (step.upgraded || this.currentRound >= 3) bee.upgrade();
         break;
       }
       case 'flicker': {
-        const flicker = new Flicker(this, w + 200, Phaser.Math.Between(100, h - 200));
+        const spawnX = step.x !== undefined ? step.x : w + 200;
+        const spawnY = step.y !== undefined ? step.y : Phaser.Math.Between(100, h - 200);
+        const flicker = new Flicker(this, spawnX, spawnY);
         this.flickers.add(flicker);
         
-        flicker.upgrade();
-        if (this.currentRound >= 3) flicker.ultimateUpgrade();
+        if (step.ultimate) flicker.ultimateUpgrade();
+        else if (step.upgraded || this.currentRound >= 3) flicker.upgrade();
         break;
       }
       case 'fruit': {
-        const fruitType = Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
-        this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), fruitType));
+        const spawnX = step.x !== undefined ? step.x : w + 200;
+        const spawnY = step.y !== undefined ? step.y : Phaser.Math.Between(300, 600);
+        const fruitType = step.fruitType || Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
+        this.fruits.add(new Fruit(this, spawnX, spawnY, fruitType));
         break;
       }
       case 'coin': {
-        this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(220, h - 320)));
+        const spawnX = step.x !== undefined ? step.x : w + 200;
+        const spawnY = step.y !== undefined ? step.y : Phaser.Math.Between(220, h - 320);
+        this.goldCoins.add(new GoldCoin(this, spawnX, spawnY));
         break;
       }
-      default:
-        break;
+      case 'blue_coin': {
+          const spawnX = step.x !== undefined ? step.x : w + 200;
+          const spawnY = step.y !== undefined ? step.y : 540;
+          this.coins.add(new BlueCoin(this, spawnX, spawnY));
+          break;
+      }
+      case 'red_coin': {
+          const spawnX = step.x !== undefined ? step.x : w + 200;
+          const spawnY = step.y !== undefined ? step.y : 540;
+          this.coins.add(new RedCoin(this, spawnX, spawnY));
+          break;
+      }
     }
 
-    const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
-    const delay = recipe ? recipe.spawnDelay : 2000;
+    this.updateRoundHUD();
+    const delay = step.delay !== undefined ? step.delay : 2000;
     this.time.delayedCall(delay, () => this.processSpawnQueue());
   }
 
@@ -647,8 +800,27 @@ export default class Phase2Scene extends Phaser.Scene {
 
   createProgressionHUD() {
     const w = 1920; const h = 1080;
-    this.scoreText = this.add.text(60, 60, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0);
+    
+    // SCORE no topo esquerdo (Semi-transparente para não atrapalhar a visão dos inimigos)
+    this.scoreText = this.add.text(60, 60, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0).setAlpha(0);
+
+    // --- HUD DE PROGRESSO DO ROUND ---
     const barW = 250; const barH = 30; const barX = w - 60 - barW; const barY = h - 25 - barH;
+    const rBarW = 300; const rBarH = 20; const rBarX = barX - rBarW - 40; const rBarY = barY + 5;
+
+    this.roundBarBg = this.add.graphics().setDepth(500).setScrollFactor(0);
+    this.roundBarBg.fillStyle(0x333333, 0.6); // Transparência no fundo
+    this.roundBarBg.fillRoundedRect(rBarX, rBarY, rBarW, rBarH, 10);
+    this.roundBarBg.lineStyle(2, 0xffffff, 0.6); // Transparência na borda
+    this.roundBarBg.strokeRoundedRect(rBarX, rBarY, rBarW, rBarH, 10);
+
+    this.roundBarFill = this.add.graphics().setDepth(501).setScrollFactor(0);
+    
+    this.roundHeaderText = this.add.text(rBarX + rBarW/2, rBarY - 25, 'ROUND 1', { 
+        fontSize: '20px', fontFamily: 'KenneyRocket', fill: '#fff' 
+    }).setOrigin(0.5, 0).setDepth(502).setScrollFactor(0).setAlpha(0);
+    this.roundHeaderText.setAlpha(0); // Força visibilidade inicial zero
+
     this.xpBarBgGraphics = this.add.graphics().setDepth(500).setScrollFactor(0);
     this.xpBarBgGraphics.fillStyle(0x333333, 0.8); this.xpBarBgGraphics.fillRoundedRect(barX, barY, barW, barH, 15);
     this.xpBarBgGraphics.lineStyle(2, 0xffffff, 1); this.xpBarBgGraphics.strokeRoundedRect(barX, barY, barW, barH, 15);
@@ -666,6 +838,7 @@ export default class Phase2Scene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(502).setScrollFactor(0);
 
     this.xpBarData = { x: barX, y: barY, w: barW, h: barH };
+    this.roundBarData = { x: rBarX, y: rBarY, w: rBarW, h: rBarH }; // Armazena para o update
     this.drawXPBar(0);
   }
 
@@ -679,6 +852,22 @@ export default class Phase2Scene extends Phaser.Scene {
     if (this.scoreText) this.scoreText.setText('SCORE: ' + data.score);
     if (this.levelText) this.levelText.setText('LEVEL ' + data.level);
     this.drawXPBar(data.xp / data.xpNextLevel);
+  }
+
+  updateRoundHUD() {
+    const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
+    if (!recipe) return;
+
+    const total = recipe.scripted ? recipe.sequence.length : 10; // Fallback simples
+    const remaining = this.spawnQueue.length;
+    const progress = Math.max(0, Math.min(1, (total - remaining) / total));
+
+    this.roundBarFill.clear();
+    this.roundBarFill.fillStyle(0xe600ac, 0.8); // Rosa/Roxo com transparência
+    
+    const { x, y, w, h } = this.roundBarData;
+    this.roundBarFill.fillRoundedRect(x, y, w * progress, h, 10);
+    this.roundHeaderText.setText(`ROUND ${this.currentRound}`);
   }
 
   createPauseMenu(w, h) {

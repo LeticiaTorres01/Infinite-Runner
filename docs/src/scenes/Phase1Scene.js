@@ -525,9 +525,14 @@ export default class Phase1Scene extends Phaser.Scene {
     if (this.ammoIcon) this.ammoIcon.setAlpha(alpha); if (this.ammoText) this.ammoText.setAlpha(alpha);
     if (this.shieldInvIcon) this.shieldInvIcon.setAlpha(alpha); if (this.shieldInvText) this.shieldInvText.setAlpha(alpha);
     if (this.healInvIcon) this.healInvIcon.setAlpha(alpha); if (this.healInvText) this.healInvText.setAlpha(alpha);
-    if (this.scoreText) this.scoreText.setAlpha(alpha); if (this.levelText) this.levelText.setAlpha(alpha);
+    if (this.scoreText) this.scoreText.setAlpha(alpha * 0.5); 
+    if (this.levelText) this.levelText.setAlpha(alpha);
     if (this.xpBarBgGraphics) this.xpBarBgGraphics.setAlpha(alpha);
     if (this.xpBarGraphics) this.xpBarGraphics.setAlpha(alpha);
+    // ADICIONADO: Garante que a barra de round e seu texto sigam a opacidade da HUD
+    if (this.roundBarBg) this.roundBarBg.setAlpha(alpha * 0.6);
+    if (this.roundBarFill) this.roundBarFill.setAlpha(alpha * 0.8);
+    if (this.roundHeaderText) this.roundHeaderText.setAlpha(alpha * 0.8);
   }
 
   startCinematicIntro() {
@@ -561,9 +566,28 @@ export default class Phase1Scene extends Phaser.Scene {
                 loop: true
             });
 
+            // HUD Geral exceto Score e Round Bar
             this.tweens.add({
-                targets: [ ...this.hearts, ...this.shieldIcons, this.ammoIcon, this.ammoText, this.shieldInvIcon, this.shieldInvText, this.healInvIcon, this.healInvText, this.scoreText, this.levelText, this.xpBarBgGraphics, this.xpBarGraphics ],
+                targets: [ ...this.hearts, ...this.shieldIcons, this.ammoIcon, this.ammoText, this.shieldInvIcon, this.shieldInvText, this.healInvIcon, this.healInvText, this.levelText, this.xpBarBgGraphics, this.xpBarGraphics ],
                 alpha: 1, duration: 1500, ease: 'Linear'
+            });
+
+            // Score semi-transparente
+            this.tweens.add({
+                targets: this.scoreText,
+                alpha: 0.5,
+                duration: 1500,
+                ease: 'Linear'
+            });
+
+            // Round HUD (Suave junto com o resto)
+            this.tweens.add({
+                targets: [this.roundBarBg, this.roundBarFill],
+                alpha: 1, duration: 1500, ease: 'Linear'
+            });
+            this.tweens.add({
+                targets: this.roundHeaderText,
+                alpha: 0.8, duration: 1500, ease: 'Linear'
             });
         }
     });
@@ -578,13 +602,8 @@ export default class Phase1Scene extends Phaser.Scene {
     const roundText = this.add.text(w / 2, h / 2, `ROUND ${this.currentRound}`, { fontFamily: 'KenneyRocket', fontSize: '100px', fill: '#fff', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setDepth(1000);
     this.tweens.add({ targets: roundText, alpha: 0, y: h / 2 - 200, duration: 2500, ease: 'Power2', onComplete: () => roundText.destroy() });
     
-    // FADE IN DA BARRA DE ROUND
-    this.tweens.add({
-        targets: [this.roundBarBg, this.roundBarFill, this.roundHeaderText],
-        alpha: 1,
-        duration: 500,
-        ease: 'Linear'
-    });
+    // REMOVIDO: O fade-in abrupto que causava o problema
+    this.updateRoundHUD();
 
     this.isSpawningFinished = false; 
     this.isRoundTransitioning = false; 
@@ -838,24 +857,27 @@ export default class Phase1Scene extends Phaser.Scene {
   createProgressionHUD() {
     const w = 1920; const h = 1080;
     
-    // SCORE (Descido um pouco para dar espaço à barra de round)
-    this.scoreText = this.add.text(60, 90, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0);
+    // SCORE no topo esquerdo (Semi-transparente para não atrapalhar a visão dos inimigos)
+    this.scoreText = this.add.text(60, 60, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0).setAlpha(0);
 
     // --- HUD DE PROGRESSO DO ROUND ---
-    const rBarW = 300; const rBarH = 20; const rBarX = 60; const rBarY = 40;
+    // Posicionado à esquerda da barra de Level (que começa em w - 60 - 250 = 1610)
+    const barW = 250; const barH = 30; const barX = w - 60 - barW; const barY = h - 25 - barH;
+    const rBarW = 300; const rBarH = 20; const rBarX = barX - rBarW - 40; const rBarY = barY + 5;
+    
     this.roundBarBg = this.add.graphics().setDepth(500).setScrollFactor(0).setAlpha(0);
-    this.roundBarBg.fillStyle(0x333333, 0.8);
+    this.roundBarBg.fillStyle(0x333333, 0.6); // Transparência no fundo
     this.roundBarBg.fillRoundedRect(rBarX, rBarY, rBarW, rBarH, 10);
-    this.roundBarBg.lineStyle(2, 0xffffff, 1);
+    this.roundBarBg.lineStyle(2, 0xffffff, 0.6); // Transparência na borda
     this.roundBarBg.strokeRoundedRect(rBarX, rBarY, rBarW, rBarH, 10);
 
     this.roundBarFill = this.add.graphics().setDepth(501).setScrollFactor(0).setAlpha(0);
     
-    this.roundHeaderText = this.add.text(rBarX, rBarY - 25, 'ROUND 1', { 
-        fontSize: '24px', fontFamily: 'KenneyRocket', fill: '#fff' 
-    }).setDepth(502).setScrollFactor(0).setAlpha(0);
+    this.roundHeaderText = this.add.text(rBarX + rBarW/2, rBarY - 25, 'ROUND 1', { 
+        fontSize: '20px', fontFamily: 'KenneyRocket', fill: '#ffffff'
+    }).setOrigin(0.5, 0).setDepth(502).setScrollFactor(0).setAlpha(0);
+    this.roundHeaderText.setAlpha(0.8); // Texto um pouco mais visível
 
-    const barW = 250; const barH = 30; const barX = w - 60 - barW; const barY = h - 25 - barH;
     this.xpBarBgGraphics = this.add.graphics().setDepth(500).setScrollFactor(0);
     this.xpBarBgGraphics.fillStyle(0x333333, 0.8); this.xpBarBgGraphics.fillRoundedRect(barX, barY, barW, barH, 15);
     this.xpBarBgGraphics.lineStyle(2, 0xffffff, 1); this.xpBarBgGraphics.strokeRoundedRect(barX, barY, barW, barH, 15);
@@ -875,6 +897,7 @@ export default class Phase1Scene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(502).setScrollFactor(0);
 
     this.xpBarData = { x: barX, y: barY, w: barW, h: barH };
+    this.roundBarData = { x: rBarX, y: rBarY, w: rBarW, h: rBarH }; // Armazena para o update
     this.drawXPBar(0);
   }
 
@@ -899,11 +922,13 @@ export default class Phase1Scene extends Phaser.Scene {
                  (recipe.flickers + recipe.mushrooms + recipe.bees + (recipe.oranges || 0) + recipe.coins);
     
     const remaining = this.spawnQueue.length;
-    const progress = (total - remaining) / total;
+    const progress = Math.max(0, Math.min(1, (total - remaining) / total));
 
     this.roundBarFill.clear();
-    this.roundBarFill.fillStyle(0x00ccff, 1); // Azul para diferenciar da XP verde
-    this.roundBarFill.fillRoundedRect(60, 40, 300 * progress, 20, 10);
+    this.roundBarFill.fillStyle(0x00ccff, 0.8); // Azul com leve transparência
+    
+    const { x, y, w, h } = this.roundBarData;
+    this.roundBarFill.fillRoundedRect(x, y, w * progress, h, 10);
     this.roundHeaderText.setText(`ROUND ${this.currentRound}`);
   }
 
