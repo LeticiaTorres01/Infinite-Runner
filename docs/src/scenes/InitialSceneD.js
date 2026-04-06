@@ -1,18 +1,16 @@
 /**
- * StoryScene.js - Cena de Introdução do Jogo Tori-Tori
- * Estilo "Star Wars Crawl" com parallax contemplativo.
+ * InitialSceneD.js - Cena de Introdução e Menu Principal do Jogo Tori-Tori
  */
-export default class StoryScene extends Phaser.Scene {
+export default class InitialSceneD extends Phaser.Scene {
   constructor() {
-    super({ key: 'StoryScene' });
+    super({ key: 'InitialSceneD' });
     this.bgLayers = [];
     this.crawlContainer = null;
-    this.scrollSpeed = 0.9; // Velocidade de subida do texto
+    this.scrollSpeed = 0.9; 
     this.isTransitioning = false;
   }
 
   preload() {
-    // Carregamento dos assets de fundo (os mesmos da PlayScene para consistência)
     this.load.image('ceu_sombrio', 'assets/ceu_sombrio.jpg');
     this.load.image('bg_cielo', 'assets/Layer_0009_2.png');
     this.load.image('bg_arvores_fundo', 'assets/Layer_0008_3.png');
@@ -24,6 +22,11 @@ export default class StoryScene extends Phaser.Scene {
     this.load.image('bg_arbustos', 'assets/Layer_0002_7.png');
     this.load.image('bg_grama_fundo', 'assets/Layer_0001_8.png');
     this.load.image('bg_chao', 'assets/Layer_0000_9.png');
+    
+    // Música do Menu
+    this.load.audio('bgm_story', 'assets/soundtrack/story.mp3');
+    this.load.audio('bgm_pre_start', 'assets/soundtrack/pre-start.mp3');
+    this.load.audio('bgm_pause', 'assets/soundtrack/pause.mp3');
   }
 
   create() {
@@ -31,23 +34,23 @@ export default class StoryScene extends Phaser.Scene {
     const h = this.scale.height;
     this.isTransitioning = false;
 
+    // Toca música da história
+    this.bgmStory = this.sound.add('bgm_story', { loop: true, volume: 0.5 });
+    this.bgmStory.play();
+
     // --- LÓGICA DE PARALLAX ---
     const addLayer = (key, speed, isLight = false) => {
       const texture = this.textures.get(key);
       const img = texture ? texture.getSourceImage() : null;
       const imgHeight = (img && img.height) ? img.height : 512;
       const sprite = this.add.tileSprite(0, h, w, imgHeight, key).setOrigin(0, 1);
-      
       const scale = h / imgHeight;
       sprite.setScale(scale);
       sprite.width = w / scale;
-
       if (isLight) {
         sprite.setBlendMode(Phaser.BlendModes.ADD);
         sprite.setAlpha(0.3);
       }
-
-      // Velocidade reduzida para efeito contemplativo (5% da original)
       this.bgLayers.push({ sprite: sprite, speed: speed * 0.05 });
     };
 
@@ -63,10 +66,9 @@ export default class StoryScene extends Phaser.Scene {
     addLayer('bg_grama_fundo', 1.5);
     addLayer('bg_chao', 2.0);
 
-    // Overlay para escurecer o fundo e destacar o texto
-    this.add.rectangle(0, 0, w, h, 0x000000, 0.45).setOrigin(0);
+    this.overlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.45).setOrigin(0);
 
-    // --- LETREIRO (THE CRAWL) ---
+    // --- LETREIRO ---
     const storyContent = 
       "A paz de Tsukimori foi estraçalhada.\n" +
       "Kage-kyō, um lorde de outra dimensão,\n" +
@@ -88,8 +90,7 @@ export default class StoryScene extends Phaser.Scene {
       "depende das suas asas.";
 
     this.crawlContainer = this.add.container(w / 2, h + 50);
-
-    const body = this.add.text(0, 0, storyContent, {
+    this.storyBody = this.add.text(0, 0, storyContent, {
       fontFamily: 'KenneyPixel',
       fontSize: '64px',
       fill: '#ffffff',
@@ -98,10 +99,8 @@ export default class StoryScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 5
     }).setOrigin(0.5, 0);
+    this.crawlContainer.add([this.storyBody]);
 
-    this.crawlContainer.add([body]);
-
-    // --- TEXTO DE PULO ---
     this.skipText = this.add.text(w - 30, h - 30, "[PRESSIONE ESPAÇO PARA PULAR]", {
       fontFamily: 'KenneyPixel',
       fontSize: '28px',
@@ -117,37 +116,77 @@ export default class StoryScene extends Phaser.Scene {
       repeat: -1
     });
 
-    // --- ENTRADA DE USUÁRIO ---
-    this.input.keyboard.on('keydown-SPACE', () => this.startPlayScene());
-    this.input.on('pointerdown', () => this.startPlayScene());
+    this.input.keyboard.on('keydown-SPACE', () => this.finishStory());
+    this.input.on('pointerdown', () => this.finishStory());
   }
 
   update() {
-    // Movimento Parallax
     this.bgLayers.forEach(layer => {
       layer.sprite.tilePositionX += layer.speed;
     });
 
-    // Subida do texto
     if (this.crawlContainer && !this.isTransitioning) {
       this.crawlContainer.y -= this.scrollSpeed;
-
-      // Se o topo do container sumir totalmente no topo
-      // (considerando a altura do container de aproximadamente 1000px)
       if (this.crawlContainer.y < -1100) {
-        this.startPlayScene();
+        this.finishStory();
       }
     }
   }
 
-  startPlayScene() {
+  finishStory() {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
 
-    this.cameras.main.fadeOut(1500, 0, 0, 0);
+    this.tweens.add({
+        targets: [this.crawlContainer, this.skipText],
+        alpha: 0,
+        duration: 1000,
+        onComplete: () => {
+            this.showMainMenu();
+        }
+    });
+  }
 
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('PlayScene');
+  showMainMenu() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    if (this.bgmStory) this.bgmStory.stop(); 
+    this.bgmMenu = this.sound.add('bgm_pre_start', { loop: true, volume: 0.5 });
+    this.bgmMenu.play();
+
+    this.menuGroup = this.add.group();
+
+    const title = this.add.text(w / 2, h / 2 - 150, 'TORI-TORI', { 
+        fontSize: '150px', fontFamily: 'KenneyRocket', fill: '#fff', stroke: '#000', strokeThickness: 15 
+    }).setOrigin(0.5).setAlpha(0);
+
+    const startBtn = this.add.text(w / 2, h / 2 + 100, ' START GAME ', { 
+        fontSize: '80px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#2d5a27', padding: {x: 30, y: 15} 
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setAlpha(0);
+
+    this.menuGroup.addMultiple([title, startBtn]);
+
+    this.tweens.add({
+        targets: [title, startBtn],
+        alpha: 1,
+        duration: 1500,
+        ease: 'Power2'
+    });
+
+    startBtn.on('pointerdown', () => {
+        this.sound.play('bgm_pause', { volume: 0.5 }); // Som de clique (reusando pause)
+        this.tweens.add({
+            targets: [title, startBtn],
+            alpha: 0,
+            duration: 500,
+            onComplete: () => {
+                this.cameras.main.fadeOut(1000, 0, 0, 0);
+                this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+                    this.scene.start('Phase1Scene');
+                });
+            }
+        });
     });
   }
 }

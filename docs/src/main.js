@@ -1,5 +1,5 @@
-import StoryScene from './scenes/StoryScene.js';
-import PlayScene from './scenes/PlayScene.js';
+import InitialSceneD from './scenes/InitialSceneD.js';
+import Phase1Scene from './scenes/Phase1Scene.js';
 import Phase2Scene from './scenes/Phase2Scene.js';
 import CreditsScene from './scenes/CreditsScene.js';
 
@@ -18,7 +18,7 @@ const config = {
             debug: false, // Ativa o modo de depuração para ver os corpos físicos
         }
     },
-    scene: [StoryScene, PlayScene, Phase2Scene, CreditsScene]
+    scene: [InitialSceneD, Phase1Scene, Phase2Scene, CreditsScene]
 };
 
 const game = new Phaser.Game(config);

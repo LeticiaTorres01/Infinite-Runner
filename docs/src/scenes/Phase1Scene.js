@@ -12,9 +12,9 @@ import Fruit from '../objects/Fruit.js';
 import MagicProjectile from '../objects/MagicProjectile.js';
 import SwordBoss from '../objects/SwordBoss.js';
 
-export default class PlayScene extends Phaser.Scene {
+export default class Phase1Scene extends Phaser.Scene {
   constructor() {
-    super({ key: 'PlayScene' });
+    super({ key: 'Phase1Scene' });
     this.bgLayers = [];
     this.bird = null;
     this.boss = null;
@@ -117,10 +117,15 @@ export default class PlayScene extends Phaser.Scene {
             scripted: true, 
             sequence: [
                 // 1. A Barreira (Todos com delay 0 nascem no mesmo instante, mesma posição X, posições Y diferentes)
+                { type: 'flicker', x: 2100, y: 50, delay: 0 },
                 { type: 'flicker', x: 2100, y: 150, delay: 0 },
+                { type: 'flicker', x: 2100, y: 250, delay: 0 },
                 { type: 'flicker', x: 2100, y: 350, delay: 0 },
+                { type: 'flicker', x: 2100, y: 450, delay: 0 },
                 { type: 'flicker', x: 2100, y: 550, delay: 0 },
+                { type: 'flicker', x: 2100, y: 650, delay: 0 },
                 { type: 'flicker', x: 2100, y: 750, delay: 0 },
+                { type: 'flicker', x: 2100, y: 850, delay: 0 },
                 { type: 'flicker', x: 2100, y: 950, delay: 3000 }, // O último dá o tempo de espera
                 
                 { type: 'wait_clear' },
@@ -141,24 +146,202 @@ export default class PlayScene extends Phaser.Scene {
                 { type: 'wait_clear' }
             ]
         },
+        { 
+            round: 5, 
+            scripted: true, 
+            sequence: [
+                // 1. Demonstração de Força: 2 Flickers evoluídos bem espaçados
+                // O jogador percebe que eles demoram a morrer e são rápidos
+                { type: 'flicker', upgraded: true, y: 300, delay: 2000 },
+                { type: 'flicker', upgraded: true, y: 700, delay: 3500 },
+                
+                { type: 'wait_clear' },
+                
+                // 2. Os "Baits" de Chão
+                // Nasce um cogumelo normal, e logo atrás dele, perigosamente perto do chão (y: 850), uma moeda.
+                { type: 'mushroom', delay: 600 },
+                { type: 'gold_coin', y: 850, delay: 4000 },
+                
+                // Repete a isca para ver se ele cai na armadilha de novo
+                { type: 'mushroom', delay: 600 },
+                { type: 'gold_coin', y: 850, delay: 4000 },
+                
+                { type: 'wait_clear' },
+                
+                // 3. Punição Aérea e Recompensa Final
+                // O jogador que ficou voando alto para fugir dos cogumelos vai dar de cara com abelhas
+                { type: 'bee', delay: 1000 },
+                { type: 'bee', delay: 1500 },
+                { type: 'gold_coin', delay: 0 }, // Moeda no meio da tela como recompensa de fim de round
+                
+                { type: 'wait_clear' }
+            ]
+        },
+        // ROUND 6: Foco em acrobacias aéreas e introdução da Bee Evoluída (Combo de Dashes)
+        { 
+            round: 6, 
+            scripted: true, 
+            sequence: [
+                // 1. Apresentação: Uma Bee Evoluída sozinha para o jogador aprender o tempo de esquiva do combo
+                { type: 'bee', upgraded: true, delay: 3500 },
+                { type: 'wait_clear' },
+                
+                // 2. O "Zigue-Zague": Flickers em alturas diferentes forçando voo sinuoso + Bee dando suporte
+                { type: 'flicker', y: 200, delay: 500 },
+                { type: 'flicker', y: 550, delay: 500 },
+                { type: 'flicker', y: 850, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 2500 },
+                { type: 'wait_clear' },
 
-        // --- SINERGIA (Misturando os perigos) ---
-        // Round 5: O Ataque aéreo e terrestre (O jogador precisa ficar no meio da tela).
-        { round: 5, flickers: 0, mushrooms: 8, bees: 8, coins: 4, spawnDelay: 4500 },
-        // Round 6: O Trio. Todos os monstros aparecem juntos pela primeira vez.
-        { round: 6, flickers: 5, mushrooms: 5, bees: 5, coins: 5, spawnDelay: 4000 },
+                // 3. Pressão Aérea: Tudo voando ao mesmo tempo
+                { type: 'flicker', upgraded: true, y: 300, delay: 0 },
+                { type: 'flicker', y: 700, delay: 1000 },
+                { type: 'bee', upgraded: true, delay: 1000 },
+                { type: 'bee', delay: 2000 },
+                { type: 'wait_clear' },
+                
+                // 4. Preparação para a tempestade: Dá um escudo para ajudar no R7
+                { type: 'blue_coin', delay: 500 },
+                { type: 'gold_coin', y: 300, delay: 500 },
+                { type: 'gold_coin', y: 700, delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
 
-        // --- PRESSÃO (Obriga o uso de tiros/cocô para abrir caminho) ---
-        // Round 7: Foco em barreira terrestre forte com suporte aéreo.
-        { round: 7, flickers: 8, mushrooms: 10, bees: 5, coins: 6, spawnDelay: 3500 },
-        // Round 8: Foco em enxame aéreo forte com obstáculos terrestres.
-        { round: 8, flickers: 8, mushrooms: 5, bees: 10, coins: 6, spawnDelay: 3000 },
-        // Round 9: Pré-Clímax. Caos equilibrado.
-        { round: 9, flickers: 10, mushrooms: 10, bees: 10, coins: 8, spawnDelay: 2500 },
+        // ROUND 7: A Tempestade. Pressão altíssima de todos os lados.
+        { 
+            round: 7, 
+            scripted: true, 
+            sequence: [
+                // 1. Entrada Brusca: Tanque no chão e enxame no ar
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'bee', delay: 500 },
+                { type: 'bee', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 3000 },
+                { type: 'wait_clear' },
 
-        // --- CLÍMAX (Teste de Sobrevivência) ---
-        // Round 10: O limite da Fase 1. Spawns extremamente rápidos, tela cheia.
-        { round: 10, flickers: 15, mushrooms: 15, bees: 15, coins: 10, spawnDelay: 2000 }
+                // 2. O Caos (Mix de inimigos rápidos e fortes forçando uso de recursos)
+                { type: 'flicker', upgraded: true, y: 200, delay: 800 },
+                { type: 'mushroom', delay: 800 },
+                { type: 'flicker', upgraded: true, y: 700, delay: 800 },
+                { type: 'bee', upgraded: true, delay: 800 },
+                { type: 'mushroom', upgraded: true, delay: 3000 },
+                { type: 'wait_clear' },
+
+                // 3. O Clímax da Tempestade: Parede dupla (Aérea e Terrestre)
+                { type: 'flicker', x: 2100, y: 200, delay: 0 },
+                { type: 'flicker', x: 2100, y: 400, delay: 0 },
+                { type: 'flicker', x: 2100, y: 600, delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 0 }, // Força o Dash ou o jogador toma hit no chão
+                { type: 'flicker', x: 2100, y: 800, delay: 4000 },
+                { type: 'wait_clear' },
+
+                // 4. Bonança: Recompensa massiva para quem sobreviveu (Cura e pontos)
+                { type: 'red_coin', delay: 800 }, // Cura a vida que com certeza ele perdeu
+                { type: 'gold_coin', y: 200, delay: 500 },
+                { type: 'gold_coin', y: 500, delay: 500 },
+                { type: 'gold_coin', y: 800, delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
+
+        // ROUND 8: Labirintos e a Introdução das Laranjas (Pressão de velocidade no chão)
+        { 
+            round: 8, 
+            scripted: true, 
+            sequence: [
+                // 1. Apresenta o Orange junto com uma parede simples de Flickers
+                { type: 'flicker', upgraded: true, x: 2100, y: 300, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2100, y: 600, delay: 1500 },
+                { type: 'orange', delay: 3000 }, // A Laranja vem rasgando pelo chão
+                { type: 'wait_clear' },
+
+                // 2. O "V" da Morte + Laranjas
+                { type: 'flicker', upgraded: true, x: 2000, y: 100, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2150, y: 250, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2300, y: 400, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2000, y: 900, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2150, y: 750, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2300, y: 600, delay: 1000 },
+                { type: 'orange', delay: 1000 }, // Força o Tori a subir para o meio do "V"
+                { type: 'blue_coin', delay: 3000 },
+                { type: 'wait_clear' },
+
+                // 3. Recompensa rápida
+                { type: 'red_coin', delay: 0 },
+                { type: 'gold_coin', y: 300, delay: 0 },
+                { type: 'gold_coin', y: 600, delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
+
+        // ROUND 9: O Chão é Lava, O Céu é Hostil (Cogumelos + Oranges em sinergia)
+        { 
+            round: 9, 
+            scripted: true, 
+            sequence: [
+                // 1. Horda Terrestre Massiva: Obriga o jogador a ir para o alto
+                { type: 'mushroom', upgraded: true, delay: 500 },
+                { type: 'orange', delay: 500 },
+                { type: 'mushroom', upgraded: true, delay: 500 },
+                { type: 'orange', delay: 2000 },
+                // 2. Punição Aérea (Enquanto ele foge do chão, as abelhas atacam)
+                { type: 'bee', upgraded: true, delay: 800 },
+                { type: 'bee', upgraded: true, delay: 4000 },
+                { type: 'wait_clear' },
+
+                // 3. Chuva de Inimigos Mista
+                { type: 'blue_coin', delay: 500 },
+                { type: 'mushroom', delay: 0 },
+                { type: 'orange', delay: 0 },
+                { type: 'bee', upgraded: true, delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 1000 },
+                { type: 'orange', delay: 1000 },
+                { type: 'bee', upgraded: true, delay: 3000 },
+                { type: 'flicker', upgraded: true, y: 500, delay: 3000 }, // Flicker rasgando o meio do mapa
+                { type: 'wait_clear' }
+            ]
+        },
+
+        // ROUND 10: O Clímax Final da Fase 1 (Tudo ao mesmo tempo)
+        { 
+            round: 10, 
+            scripted: true, 
+            sequence: [
+                // 1. Parede Falsa (Parece que vai dar para passar, mas as Oranges fecham embaixo)
+                { type: 'flicker', upgraded: true, x: 2100, y: 150, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2100, y: 400, delay: 0 },
+                { type: 'orange', delay: 500 },
+                { type: 'orange', delay: 2000 },
+                { type: 'bee', upgraded: true, delay: 2000 },
+                { type: 'wait_clear' },
+
+                // 2. A Guarda Real (Cogumelos e Abelhas Upgrades lutando em pares)
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'bee', upgraded: true, delay: 1000 },
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'bee', upgraded: true, delay: 2000 },
+                { type: 'wait_clear' },
+
+                // 3. CAOS TOTAL: Teste final de Dashes e Tiros
+                { type: 'blue_coin', delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2200, y: 200, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2200, y: 800, delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'orange', delay: 0 },
+                { type: 'bee', upgraded: true, delay: 0 },
+                { type: 'orange', delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2100, y: 500, delay: 5000 },
+                
+                // Chuva de XP / Recompensas no final para garantir o Nível 7
+                { type: 'gold_coin', delay: 500 },
+                { type: 'gold_coin', delay: 500 },
+                { type: 'gold_coin', delay: 500 },
+                { type: 'gold_coin', delay: 500 },
+                { type: 'wait_clear' }
+            ]
+        }
     ];
   }
 
@@ -325,9 +508,16 @@ export default class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(this.bird, this.goldCoins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(bird); } });
     this.physics.add.overlap(this.bird, this.fruits, (bird, fruit) => { if (!bird.isDead && !fruit.isCollected) { fruit.collect(bird); } });
 
-    this.createStartMenu(w, h); this.createPauseMenu(w, h); this.createGameOverMenu(w, h);
+    // CORREÇÃO: Garante que as animações e física não fiquem travadas ao reiniciar
+    this.anims.resumeAll(); 
+    this.physics.resume();
+
+    this.createPauseMenu(w, h); this.createGameOverMenu(w, h);
     this.cameras.main.fadeIn(1000, 0, 0, 0);
     this.bird.setVisible(false); this.setHUDAlpha(0);
+
+    // AUTO-START: Começa a intro cinematográfica direto
+    this.startCinematicIntro();
   }
 
   setHUDAlpha(alpha) {
@@ -359,6 +549,10 @@ export default class PlayScene extends Phaser.Scene {
                 delay: 4000,
                 callback: () => {
                     if (this.isGameStarted && !this.isGameOver && !this.isPaused) {
+                        
+                        // ATUALIZADO: No Round 5 e 6, tem 70% de chance de NÃO nascer fruta
+                        if ((this.currentRound === 5 || this.currentRound === 6) && Phaser.Math.Between(1, 100) <= 70) return;
+
                         const w = 1920;
                         const fruitType = Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
                         this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), fruitType));
@@ -384,6 +578,14 @@ export default class PlayScene extends Phaser.Scene {
     const roundText = this.add.text(w / 2, h / 2, `ROUND ${this.currentRound}`, { fontFamily: 'KenneyRocket', fontSize: '100px', fill: '#fff', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setDepth(1000);
     this.tweens.add({ targets: roundText, alpha: 0, y: h / 2 - 200, duration: 2500, ease: 'Power2', onComplete: () => roundText.destroy() });
     
+    // FADE IN DA BARRA DE ROUND
+    this.tweens.add({
+        targets: [this.roundBarBg, this.roundBarFill, this.roundHeaderText],
+        alpha: 1,
+        duration: 500,
+        ease: 'Linear'
+    });
+
     this.isSpawningFinished = false; 
     this.isRoundTransitioning = false; 
     this.spawnQueue = [];
@@ -401,6 +603,7 @@ export default class PlayScene extends Phaser.Scene {
         Phaser.Utils.Array.Shuffle(this.spawnQueue); 
     }
     
+    this.updateRoundHUD(); // Garante que a barra comece atualizada
     this.processSpawnQueue();
   }
 
@@ -437,6 +640,7 @@ export default class PlayScene extends Phaser.Scene {
 
     // --- LÓGICA DE SPAWN ---
     this.spawnQueue.shift(); // Remove o monstro da fila
+    this.updateRoundHUD(); // Atualiza a barra de progresso do round
     const type = step.type; 
     const w = 1920; const h = 1080;
     
@@ -459,12 +663,19 @@ export default class PlayScene extends Phaser.Scene {
             break;
         case 'bee':
             const b = new Bee(this, w + 100, Phaser.Math.Between(100, h - 300));
-            if (this.currentRound >= 7) b.upgrade();
+            // AGORA RESPEITA O SCRIPT (step.upgraded)
+            if (step.upgraded || this.currentRound >= 7) b.upgrade();
             this.bees.add(b);
             break;
         case 'orange':
-            const ox = (Phaser.Math.Between(0, 1) === 0) ? -500 : w + 500;
-            const o = new Orange(this, ox, h - 180); 
+            // Se o roteiro não mandar um X específico, sorteia entre esquerda (-500) e direita (w + 500)
+            const ox = step.x !== undefined ? step.x : ((Phaser.Math.Between(0, 1) === 0) ? -500 : w + 500);
+            const oy = step.y !== undefined ? step.y : h - 180;
+            const o = new Orange(this, ox, oy); 
+            
+            // Caso o Orange tenha uma função de upgrade no futuro, já deixamos preparado
+            if (step.upgraded && typeof o.upgrade === 'function') o.upgrade();
+            
             this.oranges.add(o); 
             this.physics.add.collider(o, this.ground); 
             break;
@@ -478,13 +689,15 @@ export default class PlayScene extends Phaser.Scene {
             this.coins.add(new BlueCoin(this, w + 200, h / 2)); 
             break;
         case 'gold_coin':
-            // Usa 'this.goldCoins' que é o grupo das moedas de recompensa
-            this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); 
+            // Se o script mandar um Y específico, usamos ele. Se não, sorteia como antes.
+            const gcy = step.y || Phaser.Math.Between(200, h - 300);
+            this.goldCoins.add(new GoldCoin(this, w + 200, gcy)); 
             break;
             
         // Mantém 'coin' para retrocompatibilidade com os rounds antigos (4 a 10) que não foram roteirizados ainda
         case 'coin': 
-            this.goldCoins.add(new GoldCoin(this, w + 200, Phaser.Math.Between(200, h - 300))); 
+            const cy = step.y || Phaser.Math.Between(200, h - 300);
+            this.goldCoins.add(new GoldCoin(this, w + 200, cy)); 
             break;
     }
 
@@ -504,6 +717,14 @@ export default class PlayScene extends Phaser.Scene {
             }
 
             this.isRoundTransitioning = true; 
+            
+            // FADE OUT DA BARRA DE ROUND
+            this.tweens.add({
+                targets: [this.roundBarBg, this.roundBarFill, this.roundHeaderText],
+                alpha: 0,
+                duration: 500,
+                ease: 'Linear'
+            });
             
             this.time.delayedCall(3000, () => { 
                 this.currentRound++;
@@ -616,7 +837,24 @@ export default class PlayScene extends Phaser.Scene {
 
   createProgressionHUD() {
     const w = 1920; const h = 1080;
-    this.scoreText = this.add.text(60, 60, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0);
+    
+    // SCORE (Descido um pouco para dar espaço à barra de round)
+    this.scoreText = this.add.text(60, 90, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0);
+
+    // --- HUD DE PROGRESSO DO ROUND ---
+    const rBarW = 300; const rBarH = 20; const rBarX = 60; const rBarY = 40;
+    this.roundBarBg = this.add.graphics().setDepth(500).setScrollFactor(0).setAlpha(0);
+    this.roundBarBg.fillStyle(0x333333, 0.8);
+    this.roundBarBg.fillRoundedRect(rBarX, rBarY, rBarW, rBarH, 10);
+    this.roundBarBg.lineStyle(2, 0xffffff, 1);
+    this.roundBarBg.strokeRoundedRect(rBarX, rBarY, rBarW, rBarH, 10);
+
+    this.roundBarFill = this.add.graphics().setDepth(501).setScrollFactor(0).setAlpha(0);
+    
+    this.roundHeaderText = this.add.text(rBarX, rBarY - 25, 'ROUND 1', { 
+        fontSize: '24px', fontFamily: 'KenneyRocket', fill: '#fff' 
+    }).setDepth(502).setScrollFactor(0).setAlpha(0);
+
     const barW = 250; const barH = 30; const barX = w - 60 - barW; const barY = h - 25 - barH;
     this.xpBarBgGraphics = this.add.graphics().setDepth(500).setScrollFactor(0);
     this.xpBarBgGraphics.fillStyle(0x333333, 0.8); this.xpBarBgGraphics.fillRoundedRect(barX, barY, barW, barH, 15);
@@ -652,19 +890,21 @@ export default class PlayScene extends Phaser.Scene {
     this.drawXPBar(data.xp / data.xpNextLevel);
   }
 
-  createStartMenu(w, h) {
-    this.startGroup = this.add.group();
-    const titleText = this.add.text(w / 2, h / 2 - 150, 'TORI-TORI', { fontSize: '180px', fontFamily: 'KenneyRocket', fill: '#fff', stroke: '#000', strokeThickness: 15 }).setOrigin(0.5).setDepth(100);
-    const startBtn = this.add.text(w / 2, h / 2 + 100, 'PRESS START', { fontSize: '80px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#2e3b4e', padding: { x: 50, y: 25 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(100);
-    const phase2Btn = this.add.text(w / 2, h / 2 + 250, 'PULAR PARA FASE 2', { fontSize: '50px', fontFamily: 'KenneyPixel', fill: '#ff0', backgroundColor: '#333', padding: { x: 30, y: 15 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(100);
-    
-    this.startGroup.add(titleText); this.startGroup.add(startBtn); this.startGroup.add(phase2Btn);
+  updateRoundHUD() {
+    const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
+    if (!recipe) return;
 
-    startBtn.on('pointerdown', () => { 
-      this.startGroup.clear(true, true); 
-      this.startCinematicIntro(); 
-    });
-    phase2Btn.on('pointerdown', () => { this.goToPhase2(false); });
+    // Calcula o total de entidades no round (se for scriptado ou não)
+    const total = recipe.scripted ? recipe.sequence.length : 
+                 (recipe.flickers + recipe.mushrooms + recipe.bees + (recipe.oranges || 0) + recipe.coins);
+    
+    const remaining = this.spawnQueue.length;
+    const progress = (total - remaining) / total;
+
+    this.roundBarFill.clear();
+    this.roundBarFill.fillStyle(0x00ccff, 1); // Azul para diferenciar da XP verde
+    this.roundBarFill.fillRoundedRect(60, 40, 300 * progress, 20, 10);
+    this.roundHeaderText.setText(`ROUND ${this.currentRound}`);
   }
 
   // NOVA FUNÇÃO PARA TRANSICIONAR MANTENDO STATUS
@@ -677,6 +917,7 @@ export default class PlayScene extends Phaser.Scene {
         lives: this.bird.lives,
         maxLives: this.bird.maxLives,
         storedShields: this.bird.storedShields,
+        storedHeals: this.bird.storedHeals,
         shields: this.bird.shields
     };
 
@@ -689,12 +930,95 @@ export default class PlayScene extends Phaser.Scene {
 
   createPauseMenu(w, h) {
     this.pauseGroup = this.add.group();
-    const overlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.7).setOrigin(0).setDepth(200);
-    const pauseText = this.add.text(w / 2, h / 2 - 100, 'PAUSED', { fontSize: '120px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(201);
-    const resumeBtn = this.add.text(w / 2, h / 2 + 100, 'RESUME', { fontSize: '60px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#4e2e2e', padding: { x: 40, y: 20 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(201);
-    this.pauseGroup.add(overlay); this.pauseGroup.add(pauseText); this.pauseGroup.add(resumeBtn);
+    
+    // Fundo escuro com leve transparência
+    const overlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.85).setOrigin(0).setDepth(1000);
+    
+    // Título do Pause
+    const pauseTitle = this.add.text(w / 2, 180, '- PAUSADO -', { 
+        fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#ffffff', stroke: '#000', strokeThickness: 10 
+    }).setOrigin(0.5).setDepth(1001);
+    
+    // --- PAINEL DE STATUS ---
+    const panelW = 1000; const panelH = 450;
+    // Fundo do painel (Azul muito escuro com borda Neon)
+    const statsBg = this.add.rectangle(w / 2, h / 2 + 20, panelW, panelH, 0x0d111a, 0.95).setDepth(1001).setStrokeStyle(4, 0x00aaff);
+    
+    // Linha divisória no meio do painel
+    const line = this.add.rectangle(w / 2, h / 2 + 20, 4, panelH - 40, 0x00aaff, 0.5).setDepth(1001);
+
+    // --- TÍTULOS DAS COLUNAS ---
+    const leftTitle = this.add.text(w / 2 - 250, h / 2 - 160, 'ATRIBUTOS DO TORI', { 
+        fontSize: '40px', fontFamily: 'KenneyPixel', fill: '#00aaff' 
+    }).setOrigin(0.5).setDepth(1002);
+    
+    const rightTitle = this.add.text(w / 2 + 250, h / 2 - 160, 'CONTROLES E INVENTÁRIO', { 
+        fontSize: '40px', fontFamily: 'KenneyPixel', fill: '#00aaff' 
+    }).setOrigin(0.5).setDepth(1002);
+
+    // --- TEXTOS DINÂMICOS (Serão preenchidos pelo updatePauseStats) ---
+    this.statsTextLeft = this.add.text(w / 2 - 450, h / 2 - 100, '', { 
+        fontSize: '38px', fontFamily: 'KenneyPixel', fill: '#ffffff', lineSpacing: 20 
+    }).setDepth(1002);
+
+    this.statsTextRight = this.add.text(w / 2 + 50, h / 2 - 100, '', { 
+        fontSize: '38px', fontFamily: 'KenneyPixel', fill: '#ffffff', lineSpacing: 20 
+    }).setDepth(1002);
+
+    // Ícones do inventário alinhados com as linhas de texto de Escudo e Cura
+    this.pauseShieldIcon = this.add.image(w / 2 + 420, h / 2 + 152, 'shield_item_icon').setScale(1.5).setDepth(1002);
+    this.pauseHealIcon = this.add.image(w / 2 + 420, h / 2 + 210, 'heal_item_icon').setScale(1.5).setDepth(1002);
+
+    // --- BOTÕES (Com visual mais moderno) ---
+    const btnStyle = { fontSize: '45px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 5 };
+    
+    const resumeBtn = this.add.text(w / 2, h / 2 + 330, ' CONTINUAR ', { ...btnStyle, backgroundColor: '#2d5a27', padding: {x: 20, y: 10} })
+        .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1001);
+        
+    const restartBtn = this.add.text(w / 2 - 250, h / 2 + 330, ' REINICIAR FASE ', { ...btnStyle, backgroundColor: '#8a2b2b', padding: {x: 20, y: 10} })
+        .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1001);
+        
+    const homeBtn = this.add.text(w / 2 + 250, h / 2 + 330, ' MENU PRINCIPAL ', { ...btnStyle, backgroundColor: '#444444', padding: {x: 20, y: 10} })
+        .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1001);
+
+    this.pauseGroup.addMultiple([
+        overlay, pauseTitle, statsBg, line, leftTitle, rightTitle, 
+        this.statsTextLeft, this.statsTextRight, 
+        this.pauseShieldIcon, this.pauseHealIcon,
+        resumeBtn, restartBtn, homeBtn
+    ]);
     this.pauseGroup.setVisible(false);
+
+    // Eventos dos botões
     resumeBtn.on('pointerdown', () => this.togglePause());
+    restartBtn.on('pointerdown', () => { this.scene.restart(); });
+    homeBtn.on('pointerdown', () => { window.location.reload(); });
+  }
+
+  updatePauseStats() {
+    if (!this.bird) return;
+    const dashDmg = this.bird.dashDamage || 0;
+    const poopDmg = this.bird.level; 
+    
+    // Montando a Coluna da Esquerda
+    const leftText = 
+        `NÍVEL ATUAL: ${this.bird.level}\n` +
+        `PONTUAÇÃO: ${this.bird.score}\n` +
+        `VIDAS: ${this.bird.lives} / ${this.bird.maxLives}\n\n` +
+        `DANO DO DASH: ${dashDmg}\n` +
+        `DANO DO TIRO: ${poopDmg}\n` +
+        `MUNIÇÃO: ${this.bird.ammo} / ${this.bird.maxAmmo}`;
+        
+    // Montando a Coluna da Direita (Hotkeys)
+    const rightText = 
+        `[ SETAS ]  MOVER\n` +
+        `[ D ]  DASH (Invencível)\n` +
+        `[ESPAÇO]  ATIRAR\n\n\n` +
+        `[   S   ]  USAR ESCUDO    x ${this.bird.storedShields}\n` +
+        `[   R   ]  USAR CURA      x ${this.bird.storedHeals}`;
+
+    this.statsTextLeft.setText(leftText);
+    this.statsTextRight.setText(rightText);
   }
 
   createGameOverMenu(w, h) {
@@ -714,12 +1038,16 @@ export default class PlayScene extends Phaser.Scene {
     
     if (this.isPaused) {
         this.physics.pause();
-        // Lógica de Áudio do Pause
+        this.anims.pauseAll(); // CONGELA TODAS AS ANIMAÇÕES
+        
+        // Atualiza os Stats do Tori antes de mostrar o menu
+        this.updatePauseStats();
+
         if (this.bgmPhase1) this.bgmPhase1.pause(); 
         if (this.bgmPause) this.bgmPause.play();
     } else {
         this.physics.resume();
-        // Retorna a música original exatamente de onde parou
+        this.anims.resumeAll(); // RETOMA AS ANIMAÇÕES
         if (this.bgmPause) this.bgmPause.stop();
         if (this.bgmPhase1) this.bgmPhase1.resume(); 
     }

@@ -146,23 +146,6 @@ export default class Phase2Scene extends Phaser.Scene {
     this.bird.setDepth(50);
     if (this.bird.body) this.bird.body.enable = false; 
 
-    // APLICA OS DADOS DA FASE 1 (Se houver)
-    if (this.birdData) {
-        this.bird.level = this.birdData.level;
-        this.bird.xp = this.birdData.xp;
-        this.bird.score = this.birdData.score;
-        this.bird.ammo = this.birdData.ammo;
-        this.bird.lives = this.birdData.lives;
-        this.bird.maxLives = this.birdData.maxLives;
-        this.bird.storedShields = this.birdData.storedShields;
-        this.bird.shields = this.birdData.shields;
-
-        if (this.bird.shields > 0) {
-            this.bird.shieldSprite.setVisible(true);
-            this.bird.shieldSprite.play('shield_anim');
-        }
-    }
-
     this.mushrooms = this.add.group();
     this.bees = this.add.group();
     this.flickers = this.add.group();
@@ -206,14 +189,21 @@ export default class Phase2Scene extends Phaser.Scene {
     this.createHeartsHUD();
     this.createAmmoHUD();
     this.createShieldInventoryHUD();
+    this.createHealInventoryHUD();
     this.createProgressionHUD();
 
     // EVENTOS DO HUD
     this.events.on('updateLives', (data) => this.updateHeartsHUD(data));
     this.events.on('updateAmmo', (ammo) => this.updateAmmoHUD(ammo));
     this.events.on('updateStoredShields', (count) => this.updateShieldInventoryHUD(count));
+    this.events.on('updateStoredHeals', (count) => this.updateHealInventoryHUD(count));
     this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
     this.events.on('updateMaxLives', (maxLives) => this.rebuildHeartsHUD(maxLives));
+
+    // APLICA OS DADOS DA FASE 1 (Se houver)
+    if (this.birdData) {
+        this.bird.syncFromData(this.birdData);
+    }
 
     this.physics.add.collider(this.bird, this.ground, () => {
       if (!this.bird.isDead) this.bird.takeDamage();
@@ -301,6 +291,10 @@ export default class Phase2Scene extends Phaser.Scene {
       if (!bird.isDead && !fruit.isCollected) fruit.collect(bird);
     });
 
+    // CORREÇÃO: Garante que as animações e física não fiquem travadas ao reiniciar
+    this.anims.resumeAll(); 
+    this.physics.resume();
+
     this.createPauseMenu(w, h);
     this.createGameOverMenu(w, h);
 
@@ -342,6 +336,7 @@ export default class Phase2Scene extends Phaser.Scene {
     this.hearts.forEach(h => h.setAlpha(alpha)); this.shieldIcons.forEach(s => s.setAlpha(alpha));
     if (this.ammoIcon) this.ammoIcon.setAlpha(alpha); if (this.ammoText) this.ammoText.setAlpha(alpha);
     if (this.shieldInvIcon) this.shieldInvIcon.setAlpha(alpha); if (this.shieldInvText) this.shieldInvText.setAlpha(alpha);
+    if (this.healInvIcon) this.healInvIcon.setAlpha(alpha); if (this.healInvText) this.healInvText.setAlpha(alpha);
     if (this.scoreText) this.scoreText.setAlpha(alpha); if (this.levelText) this.levelText.setAlpha(alpha);
     if (this.xpBarBgGraphics) this.xpBarBgGraphics.setAlpha(alpha);
     if (this.xpBarGraphics) this.xpBarGraphics.setAlpha(alpha);
@@ -371,6 +366,7 @@ export default class Phase2Scene extends Phaser.Scene {
                     ...this.hearts, ...this.shieldIcons,
                     this.ammoIcon, this.ammoText, 
                     this.shieldInvIcon, this.shieldInvText,
+                    this.healInvIcon, this.healInvText,
                     this.scoreText, this.levelText, 
                     this.xpBarBgGraphics, this.xpBarGraphics
                 ],
@@ -641,6 +637,14 @@ export default class Phase2Scene extends Phaser.Scene {
 
   updateShieldInventoryHUD(count) { if (this.shieldInvText) this.shieldInvText.setText('x ' + count); }
 
+  createHealInventoryHUD() {
+    const h = 1080; const iconY = h - 30;
+    this.healInvIcon = this.add.image(920, iconY, 'heal_item_icon').setScale(2).setDepth(500).setScrollFactor(0);
+    this.healInvText = this.add.text(965, iconY, 'x 0', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#0f0', stroke: '#000', strokeThickness: 5 }).setOrigin(0, 0.5).setDepth(500).setScrollFactor(0);
+  }
+
+  updateHealInventoryHUD(count) { if (this.healInvText) this.healInvText.setText('x ' + count); }
+
   createProgressionHUD() {
     const w = 1920; const h = 1080;
     this.scoreText = this.add.text(60, 60, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0);
@@ -679,12 +683,95 @@ export default class Phase2Scene extends Phaser.Scene {
 
   createPauseMenu(w, h) {
     this.pauseGroup = this.add.group();
-    const overlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.7).setOrigin(0).setDepth(200);
-    const pauseText = this.add.text(w / 2, h / 2 - 50, 'PAUSED', { fontSize: '80px', fontFamily: 'KenneyRocket', fill: '#fff' }).setOrigin(0.5).setDepth(201);
-    const resumeBtn = this.add.text(w / 2, h / 2 + 50, 'RESUME', { fontSize: '40px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#4e2e2e', padding: { x: 20, y: 10 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(201);
-    this.pauseGroup.add(overlay); this.pauseGroup.add(pauseText); this.pauseGroup.add(resumeBtn);
+    
+    // Fundo escuro com leve transparência
+    const overlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.85).setOrigin(0).setDepth(1000);
+    
+    // Título do Pause
+    const pauseTitle = this.add.text(w / 2, 180, '- PAUSADO -', { 
+        fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#ffffff', stroke: '#000', strokeThickness: 10 
+    }).setOrigin(0.5).setDepth(1001);
+    
+    // --- PAINEL DE STATUS ---
+    const panelW = 1000; const panelH = 450;
+    // Fundo do painel (Azul muito escuro com borda Neon)
+    const statsBg = this.add.rectangle(w / 2, h / 2 + 20, panelW, panelH, 0x0d111a, 0.95).setDepth(1001).setStrokeStyle(4, 0x00aaff);
+    
+    // Linha divisória no meio do painel
+    const line = this.add.rectangle(w / 2, h / 2 + 20, 4, panelH - 40, 0x00aaff, 0.5).setDepth(1001);
+
+    // --- TÍTULOS DAS COLUNAS ---
+    const leftTitle = this.add.text(w / 2 - 250, h / 2 - 160, 'ATRIBUTOS DO TORI', { 
+        fontSize: '40px', fontFamily: 'KenneyPixel', fill: '#00aaff' 
+    }).setOrigin(0.5).setDepth(1002);
+    
+    const rightTitle = this.add.text(w / 2 + 250, h / 2 - 160, 'CONTROLES E INVENTÁRIO', { 
+        fontSize: '40px', fontFamily: 'KenneyPixel', fill: '#00aaff' 
+    }).setOrigin(0.5).setDepth(1002);
+
+    // --- TEXTOS DINÂMICOS (Serão preenchidos pelo updatePauseStats) ---
+    this.statsTextLeft = this.add.text(w / 2 - 450, h / 2 - 100, '', { 
+        fontSize: '38px', fontFamily: 'KenneyPixel', fill: '#ffffff', lineSpacing: 20 
+    }).setDepth(1002);
+
+    this.statsTextRight = this.add.text(w / 2 + 50, h / 2 - 100, '', { 
+        fontSize: '38px', fontFamily: 'KenneyPixel', fill: '#ffffff', lineSpacing: 20 
+    }).setDepth(1002);
+
+    // Ícones do inventário alinhados com as linhas de texto de Escudo e Cura
+    this.pauseShieldIcon = this.add.image(w / 2 + 420, h / 2 + 152, 'shield_item_icon').setScale(1.5).setDepth(1002);
+    this.pauseHealIcon = this.add.image(w / 2 + 420, h / 2 + 210, 'heal_item_icon').setScale(1.5).setDepth(1002);
+
+    // --- BOTÕES (Com visual mais moderno) ---
+    const btnStyle = { fontSize: '45px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 5 };
+    
+    const resumeBtn = this.add.text(w / 2, h / 2 + 330, ' CONTINUAR ', { ...btnStyle, backgroundColor: '#2d5a27', padding: {x: 20, y: 10} })
+        .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1001);
+        
+    const restartBtn = this.add.text(w / 2 - 250, h / 2 + 330, ' REINICIAR FASE ', { ...btnStyle, backgroundColor: '#8a2b2b', padding: {x: 20, y: 10} })
+        .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1001);
+        
+    const homeBtn = this.add.text(w / 2 + 250, h / 2 + 330, ' MENU PRINCIPAL ', { ...btnStyle, backgroundColor: '#444444', padding: {x: 20, y: 10} })
+        .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1001);
+
+    this.pauseGroup.addMultiple([
+        overlay, pauseTitle, statsBg, line, leftTitle, rightTitle, 
+        this.statsTextLeft, this.statsTextRight, 
+        this.pauseShieldIcon, this.pauseHealIcon,
+        resumeBtn, restartBtn, homeBtn
+    ]);
     this.pauseGroup.setVisible(false);
+
+    // Eventos dos botões
     resumeBtn.on('pointerdown', () => this.togglePause());
+    restartBtn.on('pointerdown', () => { this.isGameOver = false; this.scene.restart(); });
+    homeBtn.on('pointerdown', () => { window.location.reload(); });
+  }
+
+  updatePauseStats() {
+    if (!this.bird) return;
+    const dashDmg = this.bird.dashDamage || 0;
+    const poopDmg = this.bird.level; 
+    
+    // Montando a Coluna da Esquerda
+    const leftText = 
+        `NÍVEL ATUAL: ${this.bird.level}\n` +
+        `PONTUAÇÃO: ${this.bird.score}\n` +
+        `VIDAS: ${this.bird.lives} / ${this.bird.maxLives}\n\n` +
+        `DANO DO DASH: ${dashDmg}\n` +
+        `DANO DO TIRO: ${poopDmg}\n` +
+        `MUNIÇÃO: ${this.bird.ammo} / ${this.bird.maxAmmo}`;
+        
+    // Montando a Coluna da Direita (Hotkeys)
+    const rightText = 
+        `[ SETAS ]  MOVER\n` +
+        `[ D ]  DASH (Invencível)\n` +
+        `[ESPAÇO]  ATIRAR\n\n\n` +
+        `[   S   ]  USAR ESCUDO    x ${this.bird.storedShields}\n` +
+        `[   R   ]  USAR CURA      x ${this.bird.storedHeals}`;
+
+    this.statsTextLeft.setText(leftText);
+    this.statsTextRight.setText(rightText);
   }
 
   createGameOverMenu(w, h) {
@@ -712,6 +799,16 @@ export default class Phase2Scene extends Phaser.Scene {
     if (!this.isGameStarted || this.isGameOver) return;
     this.isPaused = !this.isPaused;
     this.pauseGroup.setVisible(this.isPaused);
-    if (this.isPaused) this.physics.pause(); else this.physics.resume();
+    
+    if (this.isPaused) {
+        this.physics.pause();
+        this.anims.pauseAll(); // CONGELA TODAS AS ANIMAÇÕES
+        
+        // Atualiza os Stats do Tori antes de mostrar o menu
+        this.updatePauseStats();
+    } else {
+        this.physics.resume();
+        this.anims.resumeAll(); // RETOMA AS ANIMAÇÕES
+    }
   }
 }

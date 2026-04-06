@@ -106,6 +106,8 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     });
     // Ícone do escudo guardado
     scene.load.image('shield_item_icon', 'assets/item556.png');
+    // Ícone da cura guardada
+    scene.load.image('heal_item_icon', 'assets/item535.png');
   }
 
   static createAnimations(scene) {
@@ -204,6 +206,57 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.scene.events.emit('updateLives', { lives: this.lives, shields: this.shields });
   }
 
+  // NOVO: Sincroniza o estado do Tori entre as fases
+  syncFromData(data) {
+    if (!data) return;
+
+    this.level = data.level || this.level;
+    this.xp = data.xp || 0;
+    this.score = data.score || 0;
+    this.ammo = data.ammo || 0;
+    this.lives = data.lives || this.lives;
+    this.maxLives = data.maxLives || this.maxLives;
+    this.storedShields = data.storedShields || 0;
+    this.storedHeals = data.storedHeals || 0;
+    this.shields = data.shields || 0;
+
+    // Recalcula atributos dependentes do level
+    const xpTable = [0, 100, 150, 200, 350, 375, 375, 375, 375, 375, 375];
+    this.xpNextLevel = xpTable[this.level] || 99999;
+    this.speed = Math.min(this.baseSpeed + ((this.level - 1) * 30), 600);
+
+    // Atualiza Aura e Dash
+    if (this.level >= 2) {
+      this.isDashReady = true;
+      this.auraFX.active = true;
+      this.auraFX.outerStrength = Math.min(this.level, 8);
+      const colorIndex = Math.min((this.level - 1) * 2, this.goldPalette.length - 1);
+      this.auraFX.color = this.goldPalette[colorIndex];
+    }
+
+    // Configura Dash Damage
+    if (this.dashConfig[Math.min(this.level, 10)]) {
+      this.dashDamage = this.dashConfig[Math.min(this.level, 10)].dmg;
+    }
+
+    if (this.shields > 0) {
+      this.shieldSprite.setVisible(true);
+      this.shieldSprite.play('shield_anim');
+    }
+
+    this.notifyHUD();
+    this.scene.events.emit('updateMaxLives', this.maxLives);
+    this.scene.events.emit('updateStoredShields', this.storedShields);
+    this.scene.events.emit('updateStoredHeals', this.storedHeals);
+    this.scene.events.emit('updateAmmo', this.ammo);
+    this.scene.events.emit('updateProgress', {
+      score: this.score,
+      xp: this.xp,
+      level: this.level,
+      xpNextLevel: this.xpNextLevel
+    });
+  }
+
   gainAmmo(amount) {
     if (this.isDead) return;
     this.ammo += amount;
@@ -221,9 +274,22 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
       this.level++;
       this.xp -= this.xpNextLevel;
       
-      // NOVO: Aumenta a quantidade de XP necessária para o próximo nível
-      // Nível 2 vai exigir 150, Nível 3 vai exigir 200, Nível 4: 250, etc.
-      this.xpNextLevel = 100 + ((this.level - 1) * 50);
+      // NOVO: Tabela Fixa de XP. Preserva os rounds iniciais e torna o "Endgame" muito mais difícil.
+      const xpTable = [
+          0,      // Level 0 (Não usado)
+          100,    // Lvl 1 -> 2 (Garantido no Round 1)
+          150,    // Lvl 2 -> 3 (Garantido no meio do Round 3)
+          200,    // Lvl 3 -> 4 
+          350,    // Lvl 4 -> 5 (Dobra a dificuldade)
+          375,    // Lvl 5 -> 6 (Requer farmar muito)
+          375,   // Lvl 6 -> 7 (O teste final da Fase 1)
+          375,   // Lvl 7 -> 8 (Só alcançável na Fase 2)
+          375,   // Lvl 8 -> 9
+          375,   // Lvl 9 -> 10
+          375   // Lvl 10 (Max)
+      ];
+      
+      this.xpNextLevel = xpTable[this.level] || 99999;
 
       if (this.maxLives < 6) this.maxLives++;
       this.lives = this.maxLives;
