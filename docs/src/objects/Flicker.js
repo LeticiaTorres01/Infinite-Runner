@@ -31,7 +31,7 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
   upgrade() {
     if (this.isUpgraded) return;
     this.isUpgraded = true;
-    this.hp = 5;
+    this.hp = 6;
     
     this.glowFX = this.preFX.addGlow(0x9900ff, 4, 0, false, 0.1, 10);
     this.scene.tweens.add({

@@ -26,20 +26,22 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.glowStep = 0; 
     
     // TABELA DE STATUS DO DASH (Level: {row, scale, cd, dmg, dur})
+    // REEQUILIBRADO: Dano reduzido e Cooldowns menores
     this.dashConfig = {
-        2: { row: 7, scale: 2, cd: 30000, dmg: 1, dur: 250 },
-        3: { row: 6, scale: 3, cd: 25000, dmg: 2, dur: 280 },
-        4: { row: 5, scale: 3, cd: 22000, dmg: 3, dur: 310 },
-        5: { row: 4, scale: 3, cd: 20000, dmg: 4, dur: 340 },
-        6: { row: 3, scale: 4, cd: 17000, dmg: 5, dur: 370 },
-        7: { row: 2, scale: 4, cd: 14000, dmg: 6, dur: 400 },
-        8: { row: 8, scale: 4, cd: 12000, dmg: 8, dur: 450 },
-        9: { row: 9, scale: 4, cd: 10000, dmg: 10, dur: 500 },
-        10: { row: 1, scale: 5, cd: 5000, dmg: 15, dur: 600 }
+        2: { row: 7, scale: 2, cd: 8000, dmg: 3, dur: 250 },
+        3: { row: 6, scale: 3, cd: 7000, dmg: 3, dur: 280 },
+        4: { row: 5, scale: 3, cd: 6000, dmg: 4, dur: 310 },
+        5: { row: 4, scale: 3, cd: 5500, dmg: 4, dur: 340 },
+        6: { row: 3, scale: 4, cd: 5000, dmg: 5, dur: 370 },
+        7: { row: 2, scale: 4, cd: 4500, dmg: 7, dur: 400 },
+        8: { row: 8, scale: 4, cd: 4000, dmg: 8, dur: 450 },
+        9: { row: 9, scale: 4, cd: 3500, dmg: 9, dur: 500 },
+        10: { row: 1, scale: 5, cd: 2000, dmg: 10, dur: 600 }
     };
 
     this.isDashReady = false; 
     this.isDashing = false;
+    this.dashHitEnemies = new Set(); // Conjunto para evitar danos múltiplos no mesmo dash
     
     // Aura FX - Inicia desativada (só liga quando tiver dash)
     this.auraFX = this.preFX.addGlow(0xFFFFFF, 0, 0, false, 0.1, 10);
@@ -73,7 +75,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
 
     // SISTEMA DE MUNIÇÃO
     this.ammo = 10;
-    this.maxAmmo = 30; // Limite máximo de coco
+    this.maxAmmo = 50; // Limite máximo de coco
     this.lastShootTime = 0;
     this.shootDelay = 500;
 
@@ -82,6 +84,9 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.xp = 0;
     this.level = 1;
     this.xpNextLevel = 100;
+
+    // NOVO: Trava de controle para cinemáticas
+    this.isControlLocked = false;
 
     // Tecla para usar escudo
     this.shieldKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
@@ -262,6 +267,23 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.ammo += amount;
     if (this.ammo > this.maxAmmo) this.ammo = this.maxAmmo;
     this.scene.events.emit('updateAmmo', this.ammo);
+  }
+
+  // NOVO: Retorna o dano do coco baseado na tabela do Poop
+  getShootDamage() {
+    const level = Math.min(this.level, 10);
+    // Tabela espelhada do Poop.js para exibição no HUD
+    const poopDmgTable = {
+        1: 1, 2: 2, 3: 3, 4: 3, 5: 4, 6: 4, 7: 5, 8: 6, 9: 7, 10: 10
+    };
+    return poopDmgTable[level] || 1;
+  }
+
+  // NOVO: Retorna o dano do dash baseado na tabela dashConfig
+  getDashDamage() {
+    const level = Math.min(this.level, 10);
+    const config = this.dashConfig[level];
+    return config ? config.dmg : 1;
   }
 
   gainExperience(amountXP, amountScore) {
@@ -448,10 +470,19 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(cursors) {
-    if (this.isDead) {
-        if (this.shieldSprite) this.shieldSprite.setVisible(false);
-        return;
-    } 
+    if (this.isDead) return;
+
+    // NOVO: Trava os controles durante a transição do Boss
+    if (this.isControlLocked) {
+        // Mantém a animação de voo tocando para ele não congelar no ar
+        if (!this.anims.isPlaying || (this.anims.currentAnim && this.anims.currentAnim.key !== 'fly')) {
+             this.play('fly', true);
+        }
+        if (this.body) {
+            this.body.setVelocity(0, 0);
+        }
+        return; // Ignora o resto do código de movimentação e tiro!
+    }
 
     // Lógica para usar escudo
     if (Phaser.Input.Keyboard.JustDown(this.shieldKey)) {
@@ -506,6 +537,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.isInvincible = true; // Garante i-frames durante o dash
     this.isDashReady = false;
     this.auraFX.active = false; // DESLIGA A AURA (Inicia o Cooldown)
+    this.dashHitEnemies.clear(); // LIMPA O HISTÓRICO DE ACERTOS DESTE DASH
 
     // Busca a configuração do dash baseada no level atual (Limita a tabela no level 10)
     const currentLevel = Math.min(this.level, 10);

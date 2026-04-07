@@ -37,6 +37,7 @@ export default class Phase2Scene extends Phaser.Scene {
     this.spawnQueue = [];
     this.isSpawningFinished = false;
     this.isRoundTransitioning = false;
+    this.isBossTransitioning = false;
     this.roundRecipes = [
         // ROUND 1: Apresentação Flicker Ultimate
         { 
@@ -161,6 +162,10 @@ export default class Phase2Scene extends Phaser.Scene {
     this.load.image('bg_arbustos', 'assets/Layer_0002_7.png');
     this.load.image('bg_grama_fundo', 'assets/Layer_0001_8.png');
     this.load.image('bg_chao', 'assets/Layer_0000_9.png');
+
+    // MÚSICAS
+    this.load.audio('bgm_phase2', 'assets/soundtrack/phase2.mp3');
+    this.load.audio('bgm_pause', 'assets/soundtrack/pause.mp3');
   }
 
   create() {
@@ -231,9 +236,12 @@ export default class Phase2Scene extends Phaser.Scene {
     this.fruits = this.add.group();
     this.poops = this.add.group();
 
-    // Expandir os limites do mundo físico drasticamente para evitar qualquer teletransporte/limite
-    this.physics.world.setBounds(-2000, -2000, w + 4000, h + 4000);
-
+    // Define os limites do mundo (0, 0) até (1920, 1080)
+    // Deixamos a altura total (h) para que ele toque o chão e tome dano.
+    // Desativamos a colisão do FUNDO do mundo para o Bird não "quicar" no limite antes de tocar o Sprite de dano do chão.
+    this.physics.world.setBounds(0, 0, w, h);
+    this.physics.world.setBoundsCollision(true, true, true, false); // esquerda, direita, cima, baixo
+    
     // NOVOS GRUPOS DA FASE 2
     this.oranges = this.add.group();
     this.fairies = this.add.group();
@@ -262,6 +270,7 @@ export default class Phase2Scene extends Phaser.Scene {
     this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.xpDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
     this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+    this.bossDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
 
     this.createHeartsHUD();
     this.createAmmoHUD();
@@ -290,6 +299,10 @@ export default class Phase2Scene extends Phaser.Scene {
     const handleEnemyCollision = (bird, enemy) => {
         if (enemy.isDead || bird.isDead) return;
         if (bird.isDashing) {
+            // Se o pássaro está no Dash: Ele causa dano APENAS UMA VEZ por inimigo neste dash
+            if (bird.dashHitEnemies && bird.dashHitEnemies.has(enemy)) return;
+            if (bird.dashHitEnemies) bird.dashHitEnemies.add(enemy);
+
             if (typeof enemy.takeDamage === 'function') enemy.takeDamage(bird.dashDamage || 1);
             else enemy.die();
         } else {
@@ -405,6 +418,18 @@ export default class Phase2Scene extends Phaser.Scene {
       ease: 'Power2',
       onComplete: () => phaseTitle.destroy()
     });
+
+    // SOUND MANAGER
+    this.sound.stopAll();
+    this.bgmPhase2 = this.sound.add('bgm_phase2', { loop: true, volume: 0 });
+    this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0.3 });
+
+    this.bgmPhase2.play();
+    this.tweens.add({
+        targets: this.bgmPhase2,
+        volume: 0.4,
+        duration: 2000
+    });
   }
 
   setHUDAlpha(alpha) {
@@ -437,8 +462,23 @@ export default class Phase2Scene extends Phaser.Scene {
         ease: 'Power2.easeOut',
         onComplete: () => {
             this.isGameStarted = true;
-            this.bird.setCollideWorldBounds(true);
+            if (this.bird.body) {
+                this.bird.body.setCollideWorldBounds(true);
+            }
           this.startRound();
+
+            // SPAWN DE FRUTAS CONSTANTE (A cada 4000ms)
+            this.time.addEvent({
+                delay: 4000,
+                callback: () => {
+                    if (this.isGameStarted && !this.isGameOver && !this.isPaused && !this.isBossTransitioning) {
+                        const w = 1920;
+                        const fruitType = Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
+                        this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), fruitType));
+                    }
+                },
+                loop: true
+            });
 
             // HUD Geral (Exceto Score e Round que têm alphas diferentes)
             this.tweens.add({
@@ -489,6 +529,13 @@ export default class Phase2Scene extends Phaser.Scene {
 
   startRound() {
     if (this.isGameOver || this.isBossSpawned) return;
+
+    // NOVO: Se passou do Round 6, inicia a transição para o Boss!
+    if (this.currentRound > 6) {
+        this.startBossTransition();
+        return;
+    }
+
     const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
     if (!recipe) {
       this.startBossSequence();
@@ -527,7 +574,13 @@ export default class Phase2Scene extends Phaser.Scene {
   }
 
   processSpawnQueue() {
-    if (this.isGameOver || this.isPaused || this.isBossSpawned) return;
+    if (this.isGameOver || this.isBossSpawned) return;
+    
+    // CORREÇÃO: Se estiver pausado, reagenda a tentativa em 500ms em vez de quebrar a fila
+    if (this.isPaused) {
+        this.time.delayedCall(500, () => this.processSpawnQueue());
+        return;
+    }
     
     if (this.spawnQueue.length === 0) {
       this.isSpawningFinished = true;
@@ -666,6 +719,40 @@ export default class Phase2Scene extends Phaser.Scene {
     });
   }
 
+  startBossTransition() {
+    // 1. Ativa a flag que usaremos para parar o cenário e as frutas
+    this.isBossTransitioning = true;
+    
+    // 2. Trava o passarinho
+    this.bird.isControlLocked = true;
+    if (this.bird.body) {
+        this.bird.body.setVelocity(0, 0); // Para ele imediatamente
+        this.bird.body.setAllowGravity(false); // Desliga a gravidade para o Tween funcionar perfeitamente
+    }
+    
+    // 3. Limpa todas as frutas e iscas da tela de forma estilosa (some com um fade)
+    if (this.fruits) {
+        this.fruits.getChildren().forEach(fruit => {
+            this.tweens.add({ targets: fruit, alpha: 0, duration: 500, onComplete: () => fruit.destroy() });
+        });
+    }
+
+    // 4. Move o Tori de volta para a posição inicial suavemente
+    const h = 1080;
+    this.tweens.add({
+        targets: this.bird,
+        x: 300,       // Posição inicial segura (ajuste se seu spawn for diferente)
+        y: h / 2,     // Meio da tela
+        duration: 2500,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+            console.log("Transição concluída. O palco está pronto para o Boss!");
+            // Chama a sequência do boss
+            this.startBossSequence();
+        }
+    });
+  }
+
   startBossSequence() {
     if (this.isBossSpawned) return;
     this.isBossSpawned = true;
@@ -712,14 +799,38 @@ export default class Phase2Scene extends Phaser.Scene {
     if (this.debugKey && Phaser.Input.Keyboard.JustDown(this.debugKey)) this.debugSkipRound();
     if (this.xpDebugKey && Phaser.Input.Keyboard.JustDown(this.xpDebugKey) && this.bird) this.bird.gainExperience(100, 0);
 
+    // DEBUG BOSS
+    if (this.bossDebugKey && Phaser.Input.Keyboard.JustDown(this.bossDebugKey)) {
+        this.currentRound = 7;
+        this.startRound();
+    }
+
     if (this.bird && this.bird.isDead) {
-      if (this.bird.y > this.scale.height + 50) { this.isGameOver = true; this.gameOverGroup.setVisible(true); }
+      if (this.bird.y > this.scale.height + 50 && !this.isGameOver) { 
+        this.isGameOver = true; 
+        if (this.bgmPhase2) this.bgmPhase2.stop();
+        this.sound.play('sfx_game_over', { loop: false });
+
+        this.gameOverGroup.setVisible(true);
+        this.tweens.add({
+          targets: this.gameOverOverlay,
+          alpha: 0.8,
+          duration: 1000
+        });
+        this.tweens.add({
+          targets: [this.gameOverText, this.gameOverBtn],
+          alpha: 1,
+          duration: 1000
+        });
+      }
       return;
     }
 
-    this.bgLayers.forEach(layer => { 
-        layer.sprite.tilePositionX += layer.speed * this.bgSpeedFactor; 
-    });
+    if (!this.isBossTransitioning) {
+        this.bgLayers.forEach(layer => { 
+            layer.sprite.tilePositionX += layer.speed * this.bgSpeedFactor; 
+        });
+    }
 
     if (this.isGameStarted) {
       this.bird.update(this.cursors);
@@ -777,7 +888,8 @@ export default class Phase2Scene extends Phaser.Scene {
   createAmmoHUD() {
     const h = 1080; const iconY = h - 30;
     this.ammoIcon = this.add.image(520, iconY, 'poop_icon').setScale(3).setDepth(500).setScrollFactor(0);
-    this.ammoText = this.add.text(565, iconY, 'x 10', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 5 }).setOrigin(0, 0.5).setDepth(500).setScrollFactor(0);
+    const initialAmmo = this.bird ? this.bird.ammo : 10;
+    this.ammoText = this.add.text(565, iconY, 'x ' + initialAmmo, { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 5 }).setOrigin(0, 0.5).setDepth(500).setScrollFactor(0);
   }
 
   updateAmmoHUD(ammo) { if (this.ammoText) this.ammoText.setText('x ' + ammo); }
@@ -939,18 +1051,17 @@ export default class Phase2Scene extends Phaser.Scene {
 
   updatePauseStats() {
     if (!this.bird) return;
-    const dashDmg = this.bird.dashDamage || 0;
-    const poopDmg = this.bird.level; 
-    
+    const dashDmg = this.bird.getDashDamage();
+    const poopDmg = this.bird.getShootDamage();
+
     // Montando a Coluna da Esquerda
     const leftText = 
         `NÍVEL ATUAL: ${this.bird.level}\n` +
         `PONTUAÇÃO: ${this.bird.score}\n` +
         `VIDAS: ${this.bird.lives} / ${this.bird.maxLives}\n\n` +
         `DANO DO DASH: ${dashDmg}\n` +
-        `DANO DO TIRO: ${poopDmg}\n` +
+        `DANO DO COCO: ${poopDmg}\n` +
         `MUNIÇÃO: ${this.bird.ammo} / ${this.bird.maxAmmo}`;
-        
     // Montando a Coluna da Direita (Hotkeys)
     const rightText = 
         `[ SETAS ]  MOVER\n` +
@@ -965,12 +1076,30 @@ export default class Phase2Scene extends Phaser.Scene {
 
   createGameOverMenu(w, h) {
     this.gameOverGroup = this.add.group();
-    const overlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.8).setOrigin(0).setDepth(300);
-    const deadText = this.add.text(w / 2, h / 2 - 80, 'GAME OVER', { fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#f00', stroke: '#000', strokeThickness: 10 }).setOrigin(0.5).setDepth(301);
-    const restartBtn = this.add.text(w / 2, h / 2 + 60, 'RESTART', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#333', padding: { x: 20, y: 10 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(301);
-    this.gameOverGroup.add(overlay); this.gameOverGroup.add(deadText); this.gameOverGroup.add(restartBtn);
+    this.gameOverOverlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.8).setOrigin(0).setDepth(300);
+    this.gameOverText = this.add.text(w / 2, h / 2 - 80, 'GAME OVER', { fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#f00', stroke: '#000', strokeThickness: 10 }).setOrigin(0.5).setDepth(301);
+    this.gameOverBtn = this.add.text(w / 2, h / 2 + 60, 'RESTART', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#333', padding: { x: 20, y: 10 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(301);
+    
+    this.gameOverOverlay.setAlpha(0);
+    this.gameOverText.setAlpha(0);
+    this.gameOverBtn.setAlpha(0);
+
+    this.gameOverGroup.add(this.gameOverOverlay); 
+    this.gameOverGroup.add(this.gameOverText); 
+    this.gameOverGroup.add(this.gameOverBtn);
     this.gameOverGroup.setVisible(false);
-    restartBtn.on('pointerdown', () => { this.isGameOver = false; this.scene.restart(); });
+
+    this.gameOverBtn.on('pointerdown', () => { 
+        this.tweens.add({
+            targets: [this.gameOverOverlay, this.gameOverText, this.gameOverBtn],
+            alpha: 0,
+            duration: 500,
+            onComplete: () => {
+                this.isGameOver = false; 
+                this.scene.restart(); 
+            }
+        });
+    });
   }
 
   debugSkipRound() {
@@ -995,9 +1124,14 @@ export default class Phase2Scene extends Phaser.Scene {
         
         // Atualiza os Stats do Tori antes de mostrar o menu
         this.updatePauseStats();
+
+        if (this.bgmPhase2) this.bgmPhase2.pause(); 
+        if (this.bgmPause) this.bgmPause.play();
     } else {
         this.physics.resume();
         this.anims.resumeAll(); // RETOMA AS ANIMAÇÕES
+        if (this.bgmPause) this.bgmPause.stop();
+        if (this.bgmPhase2) this.bgmPhase2.resume(); 
     }
   }
 }

@@ -14,15 +14,15 @@ export default class Poop extends Phaser.Physics.Arcade.Sprite {
     // TABELA DE STATUS DO COCÔ (Level: {dmg, radius, row, glowStr, glowColor, expScale, aoeW, aoeH})
     // O Game Designer pode alterar livremente esses valores para balancear o jogo!
     this.poopConfig = {
-        1: { dmg: 1, radius: 25, row: 1, glowStr: 1, glowColor: 0x8B4513, expScale: 1.5, aoeW: 0, aoeH: 0 }, 
-        2: { dmg: 2, radius: 30, row: 2, glowStr: 1, glowColor: 0xA0522D, expScale: 2.0, aoeW: 60, aoeH: 30 }, 
-        3: { dmg: 3, radius: 35, row: 3, glowStr: 2, glowColor: 0xCD853F, expScale: 2.5, aoeW: 80, aoeH: 40 },
+        1: { dmg: 1, radius: 25, row: 7, glowStr: 1, glowColor: 0x8B4513, expScale: 1.5, aoeW: 0, aoeH: 0 }, 
+        2: { dmg: 2, radius: 30, row: 6, glowStr: 1, glowColor: 0xA0522D, expScale: 2.0, aoeW: 60, aoeH: 30 }, 
+        3: { dmg: 3, radius: 35, row: 5, glowStr: 2, glowColor: 0xCD853F, expScale: 2.5, aoeW: 80, aoeH: 40 },
         4: { dmg: 3, radius: 40, row: 4, glowStr: 2, glowColor: 0xCD853F, expScale: 2.5, aoeW: 100, aoeH: 50 },
-        5: { dmg: 4, radius: 45, row: 5, glowStr: 3, glowColor: 0xD2691E, expScale: 3.0, aoeW: 120, aoeH: 60 },
-        6: { dmg: 4, radius: 50, row: 6, glowStr: 3, glowColor: 0xD2691E, expScale: 3.0, aoeW: 140, aoeH: 70 },
-        7: { dmg: 5, radius: 55, row: 7, glowStr: 4, glowColor: 0xFF8C00, expScale: 3.5, aoeW: 160, aoeH: 80 },
-        8: { dmg: 6, radius: 60, row: 8, glowStr: 4, glowColor: 0xFF8C00, expScale: 3.5, aoeW: 180, aoeH: 90 },
-        9: { dmg: 7, radius: 65, row: 9, glowStr: 5, glowColor: 0xFFA500, expScale: 4.0, aoeW: 200, aoeH: 100 },
+        5: { dmg: 4, radius: 45, row: 3, glowStr: 3, glowColor: 0xD2691E, expScale: 3.0, aoeW: 120, aoeH: 60 },
+        6: { dmg: 4, radius: 50, row: 2, glowStr: 3, glowColor: 0xD2691E, expScale: 3.0, aoeW: 140, aoeH: 70 },
+        7: { dmg: 5, radius: 55, row: 8, glowStr: 4, glowColor: 0xFF8C00, expScale: 3.5, aoeW: 160, aoeH: 80 },
+        8: { dmg: 6, radius: 60, row: 9, glowStr: 4, glowColor: 0xFF8C00, expScale: 3.5, aoeW: 180, aoeH: 90 },
+        9: { dmg: 7, radius: 65, row: 1, glowStr: 5, glowColor: 0xFFA500, expScale: 4.0, aoeW: 200, aoeH: 100 },
         10: { dmg: 10, radius: 80, row: 9, glowStr: 6, glowColor: 0xFFD700, expScale: 5.0, aoeW: 250, aoeH: 120 }
     };
 

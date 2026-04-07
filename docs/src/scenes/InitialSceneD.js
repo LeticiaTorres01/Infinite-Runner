@@ -27,16 +27,19 @@ export default class InitialSceneD extends Phaser.Scene {
     this.load.audio('bgm_story', 'assets/soundtrack/story.mp3');
     this.load.audio('bgm_pre_start', 'assets/soundtrack/pre-start.mp3');
     this.load.audio('bgm_pause', 'assets/soundtrack/pause.mp3');
+    this.load.audio('sfx_game_over', 'assets/soundtrack/game_over.ogg');
   }
 
   create() {
     const w = this.scale.width;
     const h = this.scale.height;
     this.isTransitioning = false;
+    this.isStartingGame = false;
 
-    // Toca música da história
-    this.bgmStory = this.sound.add('bgm_story', { loop: true, volume: 0.5 });
-    this.bgmStory.play();
+    // Toca música pre-start (conforme pedido, única para toda a apresentação)
+    this.bgmMenu = this.sound.add('bgm_pre_start', { loop: true, volume: 0 });
+    this.bgmMenu.play();
+    this.tweens.add({ targets: this.bgmMenu, volume: 0.5, duration: 2000 });
 
     // --- LÓGICA DE PARALLAX ---
     const addLayer = (key, speed, isLight = false) => {
@@ -118,9 +121,15 @@ export default class InitialSceneD extends Phaser.Scene {
 
     this.input.keyboard.on('keydown-SPACE', () => this.finishStory());
     this.input.on('pointerdown', () => this.finishStory());
+
+    this.phase2DebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
   }
 
   update() {
+    if (this.phase2DebugKey && Phaser.Input.Keyboard.JustDown(this.phase2DebugKey)) {
+        this.scene.start('Phase2Scene');
+        return;
+    }
     this.bgLayers.forEach(layer => {
       layer.sprite.tilePositionX += layer.speed;
     });
@@ -151,10 +160,7 @@ export default class InitialSceneD extends Phaser.Scene {
     const w = this.scale.width;
     const h = this.scale.height;
 
-    if (this.bgmStory) this.bgmStory.stop(); 
-    this.bgmMenu = this.sound.add('bgm_pre_start', { loop: true, volume: 0.5 });
-    this.bgmMenu.play();
-
+    // A música pre-start continua tocando, não paramos mais ela aqui
     this.menuGroup = this.add.group();
 
     const title = this.add.text(w / 2, h / 2 - 150, 'TORI-TORI', { 
@@ -175,13 +181,24 @@ export default class InitialSceneD extends Phaser.Scene {
     });
 
     startBtn.on('pointerdown', () => {
-        this.sound.play('bgm_pause', { volume: 0.5 }); // Som de clique (reusando pause)
+        if (this.isStartingGame) return; // TRAVA DE SEGURANÇA
+        this.isStartingGame = true;
+
+        this.sound.play('bgm_pause', { volume: 0.5 }); // Som de clique
+        
+        // FADE OUT DA MÚSICA ATUAL
+        this.tweens.add({
+            targets: this.bgmMenu,
+            volume: 0,
+            duration: 1500
+        });
+
         this.tweens.add({
             targets: [title, startBtn],
             alpha: 0,
             duration: 500,
             onComplete: () => {
-                this.cameras.main.fadeOut(1000, 0, 0, 0);
+                this.cameras.main.fadeOut(1500, 0, 0, 0);
                 this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
                     this.scene.start('Phase1Scene');
                 });

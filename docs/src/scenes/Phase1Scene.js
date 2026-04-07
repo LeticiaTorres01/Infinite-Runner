@@ -417,14 +417,20 @@ export default class Phase1Scene extends Phaser.Scene {
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.xpDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
+    this.phase2DebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
 
     // SOUND MANAGER
     this.sound.stopAll();
-    this.bgmPreStart = this.sound.add('bgm_pre_start', { loop: true, volume: 0.5 });
-    this.bgmPhase1 = this.sound.add('bgm_phase1', { loop: true, volume: 0.4 });
+    this.bgmPhase1 = this.sound.add('bgm_phase1', { loop: true, volume: 0 });
     this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0.3 });
     this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
-    this.bgmPreStart.play();
+    
+    this.bgmPhase1.play();
+    this.tweens.add({
+        targets: this.bgmPhase1,
+        volume: 0.4,
+        duration: 2000
+    });
 
     this.createHeartsHUD();
     this.createAmmoHUD();
@@ -486,7 +492,10 @@ export default class Phase1Scene extends Phaser.Scene {
         if (enemy.isDead || bird.isDead) return;
 
         if (bird.isDashing) {
-            // Se o pássaro está no Dash: Ele causa dano e passa ileso
+            // Se o pássaro está no Dash: Ele causa dano APENAS UMA VEZ por inimigo neste dash
+            if (bird.dashHitEnemies && bird.dashHitEnemies.has(enemy)) return;
+            if (bird.dashHitEnemies) bird.dashHitEnemies.add(enemy);
+
             if (typeof enemy.takeDamage === 'function') {
                 enemy.takeDamage(bird.dashDamage || 1);
             } else {
@@ -539,9 +548,6 @@ export default class Phase1Scene extends Phaser.Scene {
     const w = 1920;
     const h = 1080;
     
-    if (this.bgmPreStart) this.bgmPreStart.stop();
-    if (this.bgmPhase1) this.bgmPhase1.play();
-
     this.bird.setPosition(-200, h / 2); this.bird.setVisible(true);
     if (this.bird.body) this.bird.body.enable = true;
     this.tweens.add({
@@ -603,6 +609,14 @@ export default class Phase1Scene extends Phaser.Scene {
     this.tweens.add({ targets: roundText, alpha: 0, y: h / 2 - 200, duration: 2500, ease: 'Power2', onComplete: () => roundText.destroy() });
     
     // REMOVIDO: O fade-in abrupto que causava o problema
+    this.tweens.add({
+        targets: [this.roundBarBg, this.roundBarFill],
+        alpha: 1, duration: 500, ease: 'Linear'
+    });
+    this.tweens.add({
+        targets: this.roundHeaderText,
+        alpha: 0.8, duration: 500, ease: 'Linear'
+    });
     this.updateRoundHUD();
 
     this.isSpawningFinished = false; 
@@ -627,7 +641,13 @@ export default class Phase1Scene extends Phaser.Scene {
   }
 
   processSpawnQueue() {
-    if (this.isGameOver || this.isPaused) return;
+    if (this.isGameOver) return;
+
+    // CORREÇÃO: Se estiver pausado, reagenda a tentativa em 500ms em vez de quebrar a fila
+    if (this.isPaused) {
+        this.time.delayedCall(500, () => this.processSpawnQueue());
+        return;
+    }
     
     if (this.spawnQueue.length === 0) { 
         this.isSpawningFinished = true; 
@@ -788,7 +808,27 @@ export default class Phase1Scene extends Phaser.Scene {
     if (this.isPaused) return;
     if (Phaser.Input.Keyboard.JustDown(this.debugKey)) this.debugSkipRound();
     if (this.xpDebugKey && Phaser.Input.Keyboard.JustDown(this.xpDebugKey) && this.bird) this.bird.gainExperience(100, 0);
-    if (this.bird && this.bird.isDead) { if (this.bird.y > 1080 + 100) { this.isGameOver = true; this.gameOverGroup.setVisible(true); } return; }
+    if (this.phase2DebugKey && Phaser.Input.Keyboard.JustDown(this.phase2DebugKey)) this.goToPhase2(true);
+    if (this.bird && this.bird.isDead) { 
+        if (this.bird.y > 1080 + 100 && !this.isGameOver) { 
+            this.isGameOver = true; 
+            if (this.bgmPhase1) this.bgmPhase1.stop();
+            this.sound.play('sfx_game_over', { loop: false });
+            
+            this.gameOverGroup.setVisible(true);
+            this.tweens.add({
+                targets: this.gameOverOverlay,
+                alpha: 0.8,
+                duration: 1000
+            });
+            this.tweens.add({
+                targets: [this.gameOverText, this.gameOverBtn],
+                alpha: 1,
+                duration: 1000
+            });
+        } 
+        return; 
+    }
     this.bgLayers.forEach(layer => { layer.sprite.tilePositionX += layer.speed * this.bgSpeedFactor; });
     if (this.bird) { if (this.isGameStarted) { this.bird.update(this.cursors); this.checkRoundEnd(); } else { this.bird.idleFloating(time); } }
     this.mushrooms.getChildren().forEach(m => m.update(this.bird, time, delta));
@@ -833,7 +873,8 @@ export default class Phase1Scene extends Phaser.Scene {
   createAmmoHUD() {
     const h = 1080; const iconY = h - 30;
     this.ammoIcon = this.add.image(520, iconY, 'poop_icon').setScale(3).setDepth(500).setScrollFactor(0);
-    this.ammoText = this.add.text(565, iconY, 'x 10', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 5 }).setOrigin(0, 0.5).setDepth(500).setScrollFactor(0);
+    const initialAmmo = this.bird ? this.bird.ammo : 10;
+    this.ammoText = this.add.text(565, iconY, 'x ' + initialAmmo, { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 5 }).setOrigin(0, 0.5).setDepth(500).setScrollFactor(0);
   }
 
   updateAmmoHUD(ammo) { if (this.ammoText) this.ammoText.setText('x ' + ammo); }
@@ -1022,18 +1063,17 @@ export default class Phase1Scene extends Phaser.Scene {
 
   updatePauseStats() {
     if (!this.bird) return;
-    const dashDmg = this.bird.dashDamage || 0;
-    const poopDmg = this.bird.level; 
-    
+    const dashDmg = this.bird.getDashDamage();
+    const poopDmg = this.bird.getShootDamage();
+
     // Montando a Coluna da Esquerda
     const leftText = 
         `NÍVEL ATUAL: ${this.bird.level}\n` +
         `PONTUAÇÃO: ${this.bird.score}\n` +
         `VIDAS: ${this.bird.lives} / ${this.bird.maxLives}\n\n` +
         `DANO DO DASH: ${dashDmg}\n` +
-        `DANO DO TIRO: ${poopDmg}\n` +
+        `DANO DO COCO: ${poopDmg}\n` +
         `MUNIÇÃO: ${this.bird.ammo} / ${this.bird.maxAmmo}`;
-        
     // Montando a Coluna da Direita (Hotkeys)
     const rightText = 
         `[ SETAS ]  MOVER\n` +
@@ -1048,12 +1088,30 @@ export default class Phase1Scene extends Phaser.Scene {
 
   createGameOverMenu(w, h) {
     this.gameOverGroup = this.add.group();
-    const overlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.8).setOrigin(0).setDepth(300);
-    const deadText = this.add.text(w / 2, h / 2 - 120, 'GAME OVER', { fontSize: '150px', fontFamily: 'KenneyRocket', fill: '#f00', stroke: '#000', strokeThickness: 15 }).setOrigin(0.5).setDepth(301);
-    const restartBtn = this.add.text(w / 2, h / 2 + 60, 'RESTART', { fontSize: '80px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#333', padding: { x: 40, y: 20 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(301);
-    this.gameOverGroup.add(overlay); this.gameOverGroup.add(deadText); this.gameOverGroup.add(restartBtn);
+    this.gameOverOverlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.8).setOrigin(0).setDepth(300);
+    this.gameOverText = this.add.text(w / 2, h / 2 - 120, 'GAME OVER', { fontSize: '150px', fontFamily: 'KenneyRocket', fill: '#f00', stroke: '#000', strokeThickness: 15 }).setOrigin(0.5).setDepth(301);
+    this.gameOverBtn = this.add.text(w / 2, h / 2 + 60, 'RESTART', { fontSize: '80px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#333', padding: { x: 40, y: 20 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(301);
+    
+    this.gameOverOverlay.setAlpha(0);
+    this.gameOverText.setAlpha(0);
+    this.gameOverBtn.setAlpha(0);
+
+    this.gameOverGroup.add(this.gameOverOverlay); 
+    this.gameOverGroup.add(this.gameOverText); 
+    this.gameOverGroup.add(this.gameOverBtn);
     this.gameOverGroup.setVisible(false);
-    restartBtn.on('pointerdown', () => { this.isGameOver = false; this.scene.restart(); });
+
+    this.gameOverBtn.on('pointerdown', () => { 
+        this.tweens.add({
+            targets: [this.gameOverOverlay, this.gameOverText, this.gameOverBtn],
+            alpha: 0,
+            duration: 500,
+            onComplete: () => {
+                this.isGameOver = false; 
+                this.scene.restart(); 
+            }
+        });
+    });
   }
 
   togglePause() {
