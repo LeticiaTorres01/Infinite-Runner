@@ -39,7 +39,6 @@ export default class Phase2Scene extends Phaser.Scene {
     this.isRoundTransitioning = false;
     this.isBossTransitioning = false;
     this.roundRecipes = [
-        // ROUND 1: Apresentação Flicker Ultimate
         { 
             round: 1, scripted: true, 
             sequence: [
@@ -51,19 +50,17 @@ export default class Phase2Scene extends Phaser.Scene {
                 { type: 'wait_clear' }
             ]
         },
-        // ROUND 2: Apresentação Fairy e Bee Ultimate
         { 
             round: 2, scripted: true, 
             sequence: [
                 { type: 'fairy', delay: 0 },
-                { type: 'wait_clear' }, // Espera a Fairy morrer como você pediu
+                { type: 'wait_clear' },
                 { type: 'bee', ultimate: true, delay: 4000 },
                 { type: 'flicker', upgraded: true, delay: 0 },
                 { type: 'orange', delay: 0 },
                 { type: 'wait_clear' }
             ]
         },
-        // ROUND 3: Mushroom Ultimate e Orange Ultimate
         { 
             round: 3, scripted: true, 
             sequence: [
@@ -76,7 +73,6 @@ export default class Phase2Scene extends Phaser.Scene {
                 { type: 'wait_clear' }
             ]
         },
-        // ROUND 4: Calmaria antes do temporal (Mix longo, pouca densidade)
         { 
             round: 4, scripted: true, 
             sequence: [
@@ -88,7 +84,6 @@ export default class Phase2Scene extends Phaser.Scene {
                 { type: 'wait_clear' }
             ]
         },
-        // ROUND 5: Fairy Ultimate e Variedade
         { 
             round: 5, scripted: true, 
             sequence: [
@@ -100,7 +95,6 @@ export default class Phase2Scene extends Phaser.Scene {
                 { type: 'wait_clear' }
             ]
         },
-        // ROUND 6: Sobrevivência Total (Ondas Ultimate)
         { 
             round: 6, scripted: true, 
             sequence: [
@@ -111,7 +105,6 @@ export default class Phase2Scene extends Phaser.Scene {
                 { type: 'fairy', ultimate: true, delay: 500 },
                 { type: 'mushroom', ultimate: true, delay: 4000 },
                 { type: 'wait_clear' },
-                // Final dramático antes do Boss
                 { type: 'flicker', ultimate: true, x: 2000, y: 200, delay: 0 },
                 { type: 'flicker', ultimate: true, x: 2000, y: 500, delay: 0 },
                 { type: 'flicker', ultimate: true, x: 2000, y: 800, delay: 0 },
@@ -125,11 +118,10 @@ export default class Phase2Scene extends Phaser.Scene {
     this.muteKey = null;
     this.hearts = [];
     this.shieldIcons = [];
-    this.birdData = null; // Armazena os dados vindos da Fase 1
+    this.birdData = null; 
   }
 
   init(data) {
-    // Captura os dados do Tori se existirem
     if (data && data.level) {
         this.birdData = data;
     }
@@ -162,8 +154,6 @@ export default class Phase2Scene extends Phaser.Scene {
     this.load.image('bg_arbustos', 'assets/Layer_0002_7.png');
     this.load.image('bg_grama_fundo', 'assets/Layer_0001_8.png');
     this.load.image('bg_chao', 'assets/Layer_0000_9.png');
-
-    // MÚSICAS
     this.load.audio('bgm_phase2', 'assets/soundtrack/phase2.mp3');
     this.load.audio('bgm_pause', 'assets/soundtrack/pause.mp3');
   }
@@ -220,11 +210,12 @@ export default class Phase2Scene extends Phaser.Scene {
     addLayer('bg_grama_fundo', 1.5);
     addLayer('bg_chao', 2.0);
 
-    const groundHeight = 60;
+    // CORREÇÃO: Altura original do chão preservada (60). O Boss é que será ajustado a ele!
+    const groundHeight = 60; 
     this.ground = this.add.rectangle(-2000, h - groundHeight, w + 4000, groundHeight).setOrigin(0, 0);
     this.physics.add.existing(this.ground, true);
 
-    this.bird = new Bird(this, -200, h / 2); // Comeca fora para o intro
+    this.bird = new Bird(this, -200, h / 2); 
     this.bird.setDepth(50);
     if (this.bird.body) this.bird.body.enable = false; 
 
@@ -236,21 +227,16 @@ export default class Phase2Scene extends Phaser.Scene {
     this.fruits = this.add.group();
     this.poops = this.add.group();
 
-    // Define os limites do mundo (0, 0) até (1920, 1080)
-    // Deixamos a altura total (h) para que ele toque o chão e tome dano.
-    // Desativamos a colisão do FUNDO do mundo para o Bird não "quicar" no limite antes de tocar o Sprite de dano do chão.
     this.physics.world.setBounds(0, 0, w, h);
-    this.physics.world.setBoundsCollision(true, true, true, false); // esquerda, direita, cima, baixo
+    this.physics.world.setBoundsCollision(true, true, true, false); 
     
-    // NOVOS GRUPOS DA FASE 2
     this.oranges = this.add.group();
     this.fairies = this.add.group();
     this.enemyProjectiles = this.add.group();
 
     this.physics.add.collider(this.oranges, this.ground);
-    this.physics.add.collider(this.mushrooms, this.ground); // Já garante para todos do grupo
+    this.physics.add.collider(this.mushrooms, this.ground); 
 
-    // Captura os tiros disparados pelas Fadas
     this.onFairyShoot = (proj) => {
       if (proj && proj.active) this.enemyProjectiles.add(proj);
     };
@@ -259,7 +245,6 @@ export default class Phase2Scene extends Phaser.Scene {
       this.events.off('fairyShoot', this.onFairyShoot);
     });
 
-    // VARIÁVEIS DE CONTROLE DE ROUND
     this.currentRound = 1;
     this.spawnQueue = [];
     this.isSpawningFinished = false;
@@ -278,7 +263,6 @@ export default class Phase2Scene extends Phaser.Scene {
     this.createHealInventoryHUD();
     this.createProgressionHUD();
 
-    // EVENTOS DO HUD
     this.events.on('updateLives', (data) => this.updateHeartsHUD(data));
     this.events.on('updateAmmo', (ammo) => this.updateAmmoHUD(ammo));
     this.events.on('updateStoredShields', (count) => this.updateShieldInventoryHUD(count));
@@ -286,7 +270,6 @@ export default class Phase2Scene extends Phaser.Scene {
     this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
     this.events.on('updateMaxLives', (maxLives) => this.rebuildHeartsHUD(maxLives));
 
-    // APLICA OS DADOS DA FASE 1 (Se houver)
     if (this.birdData) {
         this.bird.syncFromData(this.birdData);
     }
@@ -295,11 +278,9 @@ export default class Phase2Scene extends Phaser.Scene {
       if (!this.bird.isDead) this.bird.takeDamage();
     });
 
-    // SISTEMA DE DANO DO PÁSSARO E INIMIGOS
     const handleEnemyCollision = (bird, enemy) => {
         if (enemy.isDead || bird.isDead) return;
         if (bird.isDashing) {
-            // Se o pássaro está no Dash: Ele causa dano APENAS UMA VEZ por inimigo neste dash
             if (bird.dashHitEnemies && bird.dashHitEnemies.has(enemy)) return;
             if (bird.dashHitEnemies) bird.dashHitEnemies.add(enemy);
 
@@ -315,11 +296,9 @@ export default class Phase2Scene extends Phaser.Scene {
       this.physics.add.overlap(this.bird, group, handleEnemyCollision);
     });
 
-    // SISTEMA DE TIRO (COCÔ) VS INIMIGOS
     const handlePoopHit = (poop, enemy) => {
       if (!poop.active || !enemy.active || enemy.isDead) return;
 
-      // Se for uma explosão, garante que só dá dano UMA VEZ em cada inimigo
       if (poop.isExploding) {
           if (poop.hitEnemies && poop.hitEnemies.has(enemy)) return;
           if (poop.hitEnemies) poop.hitEnemies.add(enemy);
@@ -334,16 +313,13 @@ export default class Phase2Scene extends Phaser.Scene {
         enemy.die();
       }
 
-      // Regra de Penetração e Destruição (Apenas para o projétil em voo)
       if (!poop.isExploding) {
         if (projectileDamage > enemyCurrentHP) {
-          // Atravessa o inimigo
           poop.damage = projectileDamage - enemyCurrentHP;
           if (poop.auraFX) {
               poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0);
           }
         } else {
-          // Absorvido: some sem explodir
           poop.destroy();
         }
       }
@@ -354,12 +330,10 @@ export default class Phase2Scene extends Phaser.Scene {
       this.physics.add.overlap(this.poops, group, handlePoopHit);
     });
 
-    // Explosao ao tocar o chao, mantendo padrao da fase 1.
     this.physics.add.collider(this.poops, this.ground, (poop) => {
       if (poop && poop.active && !poop.isExploding) poop.explode();
     });
 
-    // TIRO DA FADA VS PÁSSARO
     this.physics.add.overlap(this.bird, this.enemyProjectiles, (bird, proj) => {
       if (!bird.isDead && !bird.isDashing && !bird.isInvincible) {
         bird.takeDamage();
@@ -379,7 +353,6 @@ export default class Phase2Scene extends Phaser.Scene {
       if (!bird.isDead && !fruit.isCollected) fruit.collect(bird);
     });
 
-    // CORREÇÃO: Garante que as animações e física não fiquem travadas ao reiniciar
     this.anims.resumeAll(); 
     this.physics.resume();
 
@@ -388,14 +361,11 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(1000, 0, 0, 0);
 
-    // Tori e HUD começam totalmente invisíveis
     this.bird.setVisible(false);
     this.setHUDAlpha(0);
     
-    // Inicia a transição automaticamente (sem botão de teste)
     this.startCinematicIntro();
 
-    // Fallback: caso a intro/tween não finalize por algum motivo, a fase começa mesmo assim.
     this.time.delayedCall(3600, () => {
       if (!this.isGameStarted && !this.isGameOver) {
         this.isGameStarted = true;
@@ -419,7 +389,6 @@ export default class Phase2Scene extends Phaser.Scene {
       onComplete: () => phaseTitle.destroy()
     });
 
-    // SOUND MANAGER
     this.sound.stopAll();
     this.bgmPhase2 = this.sound.add('bgm_phase2', { loop: true, volume: 0 });
     this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0.3 });
@@ -437,11 +406,11 @@ export default class Phase2Scene extends Phaser.Scene {
     if (this.ammoIcon) this.ammoIcon.setAlpha(alpha); if (this.ammoText) this.ammoText.setAlpha(alpha);
     if (this.shieldInvIcon) this.shieldInvIcon.setAlpha(alpha); if (this.shieldInvText) this.shieldInvText.setAlpha(alpha);
     if (this.healInvIcon) this.healInvIcon.setAlpha(alpha); if (this.healInvText) this.healInvText.setAlpha(alpha);
-    if (this.scoreText) this.scoreText.setAlpha(alpha * 0.5); // Score sempre com metade da opacidade
+    if (this.scoreText) this.scoreText.setAlpha(alpha * 0.5); 
     if (this.levelText) this.levelText.setAlpha(alpha);
     if (this.xpBarBgGraphics) this.xpBarBgGraphics.setAlpha(alpha);
     if (this.xpBarGraphics) this.xpBarGraphics.setAlpha(alpha);
-    if (this.roundBarBg) this.roundBarBg.setAlpha(alpha * 0.6); // Respeita a transparência do Round
+    if (this.roundBarBg) this.roundBarBg.setAlpha(alpha * 0.6); 
     if (this.roundBarFill) this.roundBarFill.setAlpha(alpha * 0.8);
     if (this.roundHeaderText) this.roundHeaderText.setAlpha(alpha * 0.8);
   }
@@ -449,12 +418,10 @@ export default class Phase2Scene extends Phaser.Scene {
   startCinematicIntro() {
     const h = 1080;
     
-    // 1. Garante posição inicial fora da tela e visibilidade
     this.bird.setPosition(-200, h / 2);
     this.bird.setVisible(true);
     if (this.bird.body) this.bird.body.enable = true;
     
-    // 2. Voo suave para dentro do mapa
     this.tweens.add({
         targets: this.bird,
       x: 300,
@@ -467,7 +434,6 @@ export default class Phase2Scene extends Phaser.Scene {
             }
           this.startRound();
 
-            // SPAWN DE FRUTAS CONSTANTE (A cada 4000ms)
             this.time.addEvent({
                 delay: 4000,
                 callback: () => {
@@ -480,7 +446,6 @@ export default class Phase2Scene extends Phaser.Scene {
                 loop: true
             });
 
-            // HUD Geral (Exceto Score e Round que têm alphas diferentes)
             this.tweens.add({
                 targets: [
                     ...this.hearts, ...this.shieldIcons,
@@ -496,7 +461,6 @@ export default class Phase2Scene extends Phaser.Scene {
                 ease: 'Linear'
             });
 
-            // Score semi-transparente
             this.tweens.add({
                 targets: this.scoreText,
                 alpha: 0.5,
@@ -504,7 +468,6 @@ export default class Phase2Scene extends Phaser.Scene {
                 ease: 'Linear'
             });
 
-            // Round Bar e Header (com suas transparências específicas)
             this.tweens.add({
                 targets: [this.roundBarBg],
                 alpha: 0.6,
@@ -522,7 +485,6 @@ export default class Phase2Scene extends Phaser.Scene {
   }
 
   spawnMonsters(time, delta) {
-    // Mantido por compatibilidade, o motor principal usa spawn em fila (padrao da Fase 1).
     if (!this.isGameStarted || this.isPaused || this.isGameOver || this.isBossSpawned) return;
     if (!this.isSpawningFinished && this.spawnQueue.length === 0) this.isSpawningFinished = true;
   }
@@ -530,7 +492,6 @@ export default class Phase2Scene extends Phaser.Scene {
   startRound() {
     if (this.isGameOver || this.isBossSpawned) return;
 
-    // NOVO: Se passou do Round 6, inicia a transição para o Boss!
     if (this.currentRound > 6) {
         this.startBossTransition();
         return;
@@ -576,7 +537,6 @@ export default class Phase2Scene extends Phaser.Scene {
   processSpawnQueue() {
     if (this.isGameOver || this.isBossSpawned) return;
     
-    // CORREÇÃO: Se estiver pausado, reagenda a tentativa em 500ms em vez de quebrar a fila
     if (this.isPaused) {
         this.time.delayedCall(500, () => this.processSpawnQueue());
         return;
@@ -590,7 +550,6 @@ export default class Phase2Scene extends Phaser.Scene {
     const step = this.spawnQueue.shift();
     const type = typeof step === 'string' ? step : step.type;
     
-    // LÓGICA DE ESPERA (Tarefa 4)
     if (type === 'wait_clear') {
         const totalActiveEnemies = this.oranges.countActive(true)
           + this.fairies.countActive(true)
@@ -600,10 +559,9 @@ export default class Phase2Scene extends Phaser.Scene {
 
         if (totalActiveEnemies === 0) {
             this.updateRoundHUD();
-            this.processSpawnQueue(); // Se estiver limpo, segue imediatamente
+            this.processSpawnQueue(); 
         } else {
-            // Se ainda houver inimigos, tenta novamente em 1 segundo
-            this.spawnQueue.unshift(step); // Devolve para a fila
+            this.spawnQueue.unshift(step); 
             this.time.delayedCall(1000, () => this.processSpawnQueue());
         }
         return;
@@ -615,7 +573,7 @@ export default class Phase2Scene extends Phaser.Scene {
     switch (type) {
       case 'orange': {
         const spawnX = step.x !== undefined ? step.x : (Phaser.Math.Between(0, 1) === 0 ? -500 : w + 500);
-        const orange = new Orange(this, spawnX, h - 60);
+        const orange = new Orange(this, spawnX, h - 60); 
         if (step.ultimate) orange.ultimateUpgrade();
         else if (step.upgraded || this.currentRound >= 3) orange.upgrade();
         this.oranges.add(orange);
@@ -632,7 +590,7 @@ export default class Phase2Scene extends Phaser.Scene {
       }
       case 'mushroom': {
         const spawnX = step.x !== undefined ? step.x : w + 100;
-        const mushroom = new Mushroom(this, spawnX, h - 90);
+        const mushroom = new Mushroom(this, spawnX, h - 90); 
         this.mushrooms.add(mushroom);
         this.physics.add.collider(mushroom, this.ground);
         
@@ -693,7 +651,7 @@ export default class Phase2Scene extends Phaser.Scene {
   }
 
   checkRoundEnd() {
-    if (this.isRoundTransitioning || this.isBossSpawned) return;
+    if (this.isRoundTransitioning || this.isBossSpawned || this.isBossTransitioning) return;
     if (!this.isSpawningFinished) return;
 
     const totalActiveEnemies = this.oranges.countActive(true)
@@ -711,8 +669,8 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.time.delayedCall(2200, () => {
       this.currentRound++;
-      if (this.currentRound > this.roundRecipes.length) {
-        this.startBossSequence();
+      if (this.currentRound > 6) {
+        this.startBossTransition();
       } else {
         this.startRound();
       }
@@ -720,35 +678,59 @@ export default class Phase2Scene extends Phaser.Scene {
   }
 
   startBossTransition() {
-    // 1. Ativa a flag que usaremos para parar o cenário e as frutas
+    if (this.isBossTransitioning) return; 
     this.isBossTransitioning = true;
     
-    // 2. Trava o passarinho
     this.bird.isControlLocked = true;
+    this.bird.setFlipX(false); 
+
     if (this.bird.body) {
-        this.bird.body.setVelocity(0, 0); // Para ele imediatamente
-        this.bird.body.setAllowGravity(false); // Desliga a gravidade para o Tween funcionar perfeitamente
+        this.bird.body.setVelocity(0, 0); 
+        this.bird.body.setAllowGravity(false); 
     }
     
-    // 3. Limpa todas as frutas e iscas da tela de forma estilosa (some com um fade)
-    if (this.fruits) {
-        this.fruits.getChildren().forEach(fruit => {
-            this.tweens.add({ targets: fruit, alpha: 0, duration: 500, onComplete: () => fruit.destroy() });
-        });
-    }
+    const groupsToClear = [this.fruits, this.oranges, this.fairies, this.mushrooms, this.bees, this.flickers, this.enemyProjectiles];
+    groupsToClear.forEach(group => {
+        if (group) {
+            group.getChildren().forEach(item => {
+                this.tweens.add({ targets: item, alpha: 0, duration: 500, onComplete: () => item.destroy() });
+            });
+        }
+    });
 
-    // 4. Move o Tori de volta para a posição inicial suavemente
     const h = 1080;
+    const w = 1920;
+    
     this.tweens.add({
         targets: this.bird,
-        x: 300,       // Posição inicial segura (ajuste se seu spawn for diferente)
-        y: h / 2,     // Meio da tela
+        x: 400,       
+        y: h / 2,     
         duration: 2500,
         ease: 'Sine.easeInOut',
         onComplete: () => {
             console.log("Transição concluída. O palco está pronto para o Boss!");
-            // Chama a sequência do boss
-            this.startBossSequence();
+            
+            // O Segredo está aqui: A gravidade já vem ligada do construtor dele, 
+            // e nós "largamos" ele lá no céu (y=200). Ele vai cair direto pro chão antes da tela abrir!
+            this.boss = new SwordBoss(this, w + 300, 200); 
+            
+            this.physics.add.collider(this.boss, this.ground);
+            
+            this.physics.add.overlap(this.bird, this.boss, (bird, boss) => {
+                if (!bird.isDead && !boss.isDead && (boss.anims.currentAnim.key === 'boss_spin' || boss.anims.currentAnim.key === 'boss_dash_attack')) {
+                    bird.takeDamage();
+                }
+            });
+            
+            this.physics.add.overlap(this.poops, this.boss, (poop, boss) => {
+                if (!boss.isDead) {
+                    poop.destroy(); 
+                    
+                    if (boss.anims.currentAnim.key !== 'boss_spin') {
+                        boss.takeDamage(this.bird.getShootDamage());
+                    }
+                }
+            });
         }
     });
   }
@@ -757,7 +739,6 @@ export default class Phase2Scene extends Phaser.Scene {
     if (this.isBossSpawned) return;
     this.isBossSpawned = true;
 
-    // Para o cenário suavemente
     this.tweens.add({
       targets: this,
       bgSpeedFactor: 0,
@@ -775,7 +756,7 @@ export default class Phase2Scene extends Phaser.Scene {
     this.boss = new SwordBoss(this, w / 2, h / 2);
     this.physics.add.collider(this.boss, this.ground);
     this.physics.add.overlap(this.bird, this.boss, (bird, boss) => {
-        if (!bird.isDead && !boss.isDead && (boss.anims.currentAnim.key === 'boss_spin_attack' || boss.anims.currentAnim.key === 'boss_heavy_attack')) {
+        if (!bird.isDead && !boss.isDead && (boss.anims.currentAnim.key === 'boss_spin' || boss.anims.currentAnim.key === 'boss_dash_attack')) {
             bird.takeDamage();
         }
     });
@@ -799,7 +780,6 @@ export default class Phase2Scene extends Phaser.Scene {
     if (this.debugKey && Phaser.Input.Keyboard.JustDown(this.debugKey)) this.debugSkipRound();
     if (this.xpDebugKey && Phaser.Input.Keyboard.JustDown(this.xpDebugKey) && this.bird) this.bird.gainExperience(100, 0);
 
-    // DEBUG BOSS
     if (this.bossDebugKey && Phaser.Input.Keyboard.JustDown(this.bossDebugKey)) {
         this.currentRound = 7;
         this.startRound();
@@ -845,7 +825,6 @@ export default class Phase2Scene extends Phaser.Scene {
       this.goldCoins.getChildren().forEach(c => c.update && c.update());
       this.fruits.getChildren().forEach(f => f.update && f.update(time));
       
-      // NOVAS ENTIDADES
       this.oranges.getChildren().forEach(o => o.update(this.bird, time, delta));
       this.fairies.getChildren().forEach(f => f.update(this.bird, time, delta));
       this.enemyProjectiles.getChildren().forEach(p => {
@@ -913,17 +892,15 @@ export default class Phase2Scene extends Phaser.Scene {
   createProgressionHUD() {
     const w = 1920; const h = 1080;
     
-    // SCORE no topo esquerdo (Semi-transparente para não atrapalhar a visão dos inimigos)
     this.scoreText = this.add.text(60, 60, 'SCORE: 0', { fontSize: '72px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 8 }).setDepth(500).setScrollFactor(0).setAlpha(0);
 
-    // --- HUD DE PROGRESSO DO ROUND ---
     const barW = 250; const barH = 30; const barX = w - 60 - barW; const barY = h - 25 - barH;
     const rBarW = 300; const rBarH = 20; const rBarX = barX - rBarW - 40; const rBarY = barY + 5;
 
     this.roundBarBg = this.add.graphics().setDepth(500).setScrollFactor(0);
-    this.roundBarBg.fillStyle(0x333333, 0.6); // Transparência no fundo
+    this.roundBarBg.fillStyle(0x333333, 0.6); 
     this.roundBarBg.fillRoundedRect(rBarX, rBarY, rBarW, rBarH, 10);
-    this.roundBarBg.lineStyle(2, 0xffffff, 0.6); // Transparência na borda
+    this.roundBarBg.lineStyle(2, 0xffffff, 0.6); 
     this.roundBarBg.strokeRoundedRect(rBarX, rBarY, rBarW, rBarH, 10);
 
     this.roundBarFill = this.add.graphics().setDepth(501).setScrollFactor(0);
@@ -931,7 +908,7 @@ export default class Phase2Scene extends Phaser.Scene {
     this.roundHeaderText = this.add.text(rBarX + rBarW/2, rBarY - 25, 'ROUND 1', { 
         fontSize: '20px', fontFamily: 'KenneyRocket', fill: '#fff' 
     }).setOrigin(0.5, 0).setDepth(502).setScrollFactor(0).setAlpha(0);
-    this.roundHeaderText.setAlpha(0); // Força visibilidade inicial zero
+    this.roundHeaderText.setAlpha(0); 
 
     this.xpBarBgGraphics = this.add.graphics().setDepth(500).setScrollFactor(0);
     this.xpBarBgGraphics.fillStyle(0x333333, 0.8); this.xpBarBgGraphics.fillRoundedRect(barX, barY, barW, barH, 15);
@@ -950,7 +927,7 @@ export default class Phase2Scene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(502).setScrollFactor(0);
 
     this.xpBarData = { x: barX, y: barY, w: barW, h: barH };
-    this.roundBarData = { x: rBarX, y: rBarY, w: rBarW, h: rBarH }; // Armazena para o update
+    this.roundBarData = { x: rBarX, y: rBarY, w: rBarW, h: rBarH }; 
     this.drawXPBar(0);
   }
 
@@ -970,12 +947,12 @@ export default class Phase2Scene extends Phaser.Scene {
     const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
     if (!recipe) return;
 
-    const total = recipe.scripted ? recipe.sequence.length : 10; // Fallback simples
+    const total = recipe.scripted ? recipe.sequence.length : 10; 
     const remaining = this.spawnQueue.length;
     const progress = Math.max(0, Math.min(1, (total - remaining) / total));
 
     this.roundBarFill.clear();
-    this.roundBarFill.fillStyle(0xe600ac, 0.8); // Rosa/Roxo com transparência
+    this.roundBarFill.fillStyle(0xe600ac, 0.8); 
     
     const { x, y, w, h } = this.roundBarData;
     this.roundBarFill.fillRoundedRect(x, y, w * progress, h, 10);
@@ -985,23 +962,17 @@ export default class Phase2Scene extends Phaser.Scene {
   createPauseMenu(w, h) {
     this.pauseGroup = this.add.group();
     
-    // Fundo escuro com leve transparência
     const overlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.85).setOrigin(0).setDepth(1000);
     
-    // Título do Pause
     const pauseTitle = this.add.text(w / 2, 180, '- PAUSADO -', { 
         fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#ffffff', stroke: '#000', strokeThickness: 10 
     }).setOrigin(0.5).setDepth(1001);
     
-    // --- PAINEL DE STATUS ---
     const panelW = 1000; const panelH = 450;
-    // Fundo do painel (Azul muito escuro com borda Neon)
     const statsBg = this.add.rectangle(w / 2, h / 2 + 20, panelW, panelH, 0x0d111a, 0.95).setDepth(1001).setStrokeStyle(4, 0x00aaff);
     
-    // Linha divisória no meio do painel
     const line = this.add.rectangle(w / 2, h / 2 + 20, 4, panelH - 40, 0x00aaff, 0.5).setDepth(1001);
 
-    // --- TÍTULOS DAS COLUNAS ---
     const leftTitle = this.add.text(w / 2 - 250, h / 2 - 160, 'ATRIBUTOS DO TORI', { 
         fontSize: '40px', fontFamily: 'KenneyPixel', fill: '#00aaff' 
     }).setOrigin(0.5).setDepth(1002);
@@ -1010,7 +981,6 @@ export default class Phase2Scene extends Phaser.Scene {
         fontSize: '40px', fontFamily: 'KenneyPixel', fill: '#00aaff' 
     }).setOrigin(0.5).setDepth(1002);
 
-    // --- TEXTOS DINÂMICOS (Serão preenchidos pelo updatePauseStats) ---
     this.statsTextLeft = this.add.text(w / 2 - 450, h / 2 - 100, '', { 
         fontSize: '38px', fontFamily: 'KenneyPixel', fill: '#ffffff', lineSpacing: 20 
     }).setDepth(1002);
@@ -1019,11 +989,9 @@ export default class Phase2Scene extends Phaser.Scene {
         fontSize: '38px', fontFamily: 'KenneyPixel', fill: '#ffffff', lineSpacing: 20 
     }).setDepth(1002);
 
-    // Ícones do inventário alinhados com as linhas de texto de Escudo e Cura
     this.pauseShieldIcon = this.add.image(w / 2 + 420, h / 2 + 152, 'shield_item_icon').setScale(1.5).setDepth(1002);
     this.pauseHealIcon = this.add.image(w / 2 + 420, h / 2 + 210, 'heal_item_icon').setScale(1.5).setDepth(1002);
 
-    // --- BOTÕES (Com visual mais moderno) ---
     const btnStyle = { fontSize: '45px', fontFamily: 'KenneyPixel', fill: '#fff', stroke: '#000', strokeThickness: 5 };
     
     const resumeBtn = this.add.text(w / 2, h / 2 + 330, ' CONTINUAR ', { ...btnStyle, backgroundColor: '#2d5a27', padding: {x: 20, y: 10} })
@@ -1043,7 +1011,6 @@ export default class Phase2Scene extends Phaser.Scene {
     ]);
     this.pauseGroup.setVisible(false);
 
-    // Eventos dos botões
     resumeBtn.on('pointerdown', () => this.togglePause());
     restartBtn.on('pointerdown', () => { this.isGameOver = false; this.scene.restart(); });
     homeBtn.on('pointerdown', () => { window.location.reload(); });
@@ -1054,7 +1021,6 @@ export default class Phase2Scene extends Phaser.Scene {
     const dashDmg = this.bird.getDashDamage();
     const poopDmg = this.bird.getShootDamage();
 
-    // Montando a Coluna da Esquerda
     const leftText = 
         `NÍVEL ATUAL: ${this.bird.level}\n` +
         `PONTUAÇÃO: ${this.bird.score}\n` +
@@ -1062,7 +1028,6 @@ export default class Phase2Scene extends Phaser.Scene {
         `DANO DO DASH: ${dashDmg}\n` +
         `DANO DO COCO: ${poopDmg}\n` +
         `MUNIÇÃO: ${this.bird.ammo} / ${this.bird.maxAmmo}`;
-    // Montando a Coluna da Direita (Hotkeys)
     const rightText = 
         `[ SETAS ]  MOVER\n` +
         `[ D ]  DASH (Invencível)\n` +
@@ -1120,16 +1085,15 @@ export default class Phase2Scene extends Phaser.Scene {
     
     if (this.isPaused) {
         this.physics.pause();
-        this.anims.pauseAll(); // CONGELA TODAS AS ANIMAÇÕES
+        this.anims.pauseAll(); 
         
-        // Atualiza os Stats do Tori antes de mostrar o menu
         this.updatePauseStats();
 
         if (this.bgmPhase2) this.bgmPhase2.pause(); 
         if (this.bgmPause) this.bgmPause.play();
     } else {
         this.physics.resume();
-        this.anims.resumeAll(); // RETOMA AS ANIMAÇÕES
+        this.anims.resumeAll(); 
         if (this.bgmPause) this.bgmPause.stop();
         if (this.bgmPhase2) this.bgmPhase2.resume(); 
     }
