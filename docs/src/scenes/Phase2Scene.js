@@ -38,6 +38,8 @@ export default class Phase2Scene extends Phaser.Scene {
     this.isSpawningFinished = false;
     this.isRoundTransitioning = false;
     this.isBossTransitioning = false;
+    this.isBossFightActive = false;
+    this.bossFruitTimer = null;
     this.roundRecipes = [
         { 
             round: 1, scripted: true, 
@@ -296,38 +298,11 @@ export default class Phase2Scene extends Phaser.Scene {
       this.physics.add.overlap(this.bird, group, handleEnemyCollision);
     });
 
-    const handlePoopHit = (poop, enemy) => {
-      if (!poop.active || !enemy.active || enemy.isDead) return;
+    
 
-      if (poop.isExploding) {
-          if (poop.hitEnemies && poop.hitEnemies.has(enemy)) return;
-          if (poop.hitEnemies) poop.hitEnemies.add(enemy);
-      }
-
-      const projectileDamage = poop.damage || 1;
-      const enemyCurrentHP = Math.max(enemy.hp || 1, 1);
-
-      if (typeof enemy.takeDamage === 'function') {
-        enemy.takeDamage(projectileDamage);
-      } else if (typeof enemy.die === 'function') {
-        enemy.die();
-      }
-
-      if (!poop.isExploding) {
-        if (projectileDamage > enemyCurrentHP) {
-          poop.damage = projectileDamage - enemyCurrentHP;
-          if (poop.auraFX) {
-              poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0);
-          }
-        } else {
-          poop.destroy();
-        }
-      }
-    };
-
-    const poopEnemyGroups = [...birdEnemyGroups, this.enemyProjectiles];
+    const poopEnemyGroups = [...birdEnemyGroups];
     poopEnemyGroups.forEach(group => {
-      this.physics.add.overlap(this.poops, group, handlePoopHit);
+      this.physics.add.overlap(this.poops, group, (poop, enemy) => this.handlePoopHit(poop, enemy));
     });
 
     this.physics.add.collider(this.poops, this.ground, (poop) => {
@@ -437,7 +412,7 @@ export default class Phase2Scene extends Phaser.Scene {
             this.time.addEvent({
                 delay: 4000,
                 callback: () => {
-                    if (this.isGameStarted && !this.isGameOver && !this.isPaused && !this.isBossTransitioning) {
+                if (this.isGameStarted && !this.isGameOver && !this.isPaused && !this.isBossTransitioning && !this.isBossFightActive) {
                         const w = 1920;
                         const fruitType = Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
                         this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), fruitType));
@@ -689,7 +664,7 @@ export default class Phase2Scene extends Phaser.Scene {
         this.bird.body.setAllowGravity(false); 
     }
     
-    const groupsToClear = [this.fruits, this.oranges, this.fairies, this.mushrooms, this.bees, this.flickers, this.enemyProjectiles];
+    const groupsToClear = [this.fruits, this.oranges, this.fairies, this.mushrooms, this.bees, this.flickers, this.enemyProjectiles, this.poops];
     groupsToClear.forEach(group => {
         if (group) {
             group.getChildren().forEach(item => {
@@ -715,21 +690,26 @@ export default class Phase2Scene extends Phaser.Scene {
             this.boss = new SwordBoss(this, w + 300, 200); 
             
             this.physics.add.collider(this.boss, this.ground);
+            this.beginBossFight();
             
             this.physics.add.overlap(this.bird, this.boss, (bird, boss) => {
-                if (!bird.isDead && !boss.isDead && (boss.anims.currentAnim.key === 'boss_spin' || boss.anims.currentAnim.key === 'boss_dash_attack')) {
-                    bird.takeDamage();
+              if (bird.isDead || boss.isDead) return;
+
+              if (bird.isDashing) {
+                if (bird.dashHitEnemies && bird.dashHitEnemies.has(boss)) return;
+                if (bird.dashHitEnemies) bird.dashHitEnemies.add(boss);
+
+                boss.takeDamage(bird.dashDamage || 1);
+                return;
+              }
+
+              if (boss.anims.currentAnim && (boss.anims.currentAnim.key === 'boss_spin' || boss.anims.currentAnim.key === 'boss_dash_attack')) {
+                bird.takeDamage();
                 }
             });
-            
+
             this.physics.add.overlap(this.poops, this.boss, (poop, boss) => {
-                if (!boss.isDead) {
-                    poop.destroy(); 
-                    
-                    if (boss.anims.currentAnim.key !== 'boss_spin') {
-                        boss.takeDamage(this.bird.getShootDamage());
-                    }
-                }
+              this.handlePoopHitBoss(poop, boss);
             });
         }
     });
@@ -755,17 +735,144 @@ export default class Phase2Scene extends Phaser.Scene {
     const h = this.scale.height;
     this.boss = new SwordBoss(this, w / 2, h / 2);
     this.physics.add.collider(this.boss, this.ground);
+    this.beginBossFight();
     this.physics.add.overlap(this.bird, this.boss, (bird, boss) => {
-        if (!bird.isDead && !boss.isDead && (boss.anims.currentAnim.key === 'boss_spin' || boss.anims.currentAnim.key === 'boss_dash_attack')) {
-            bird.takeDamage();
+      if (bird.isDead || boss.isDead) return;
+
+      if (bird.isDashing) {
+        if (bird.dashHitEnemies && bird.dashHitEnemies.has(boss)) return;
+        if (bird.dashHitEnemies) bird.dashHitEnemies.add(boss);
+
+        boss.takeDamage(bird.dashDamage || 1);
+        return;
+      }
+
+      if (boss.anims.currentAnim && (boss.anims.currentAnim.key === 'boss_spin' || boss.anims.currentAnim.key === 'boss_dash_attack')) {
+        bird.takeDamage();
         }
     });
     this.physics.add.overlap(this.poops, this.boss, (poop, boss) => {
-        if (!boss.isDead) {
-            poop.destroy();
-            boss.takeDamage();
-        }
+        this.handlePoopHitBoss(poop, boss);
     });
+  }
+
+  handlePoopHitBoss(poop, boss) {
+    if (!poop || !boss || !poop.active || !boss.active || boss.isDead) return;
+
+    const projectileDamage = poop.damage || 1;
+
+    // A explosao pode encostar multiplas vezes no mesmo alvo; garante dano unico por explosao.
+    if (poop.isExploding) {
+      if (poop.hitEnemies && poop.hitEnemies.has(boss)) return;
+      if (poop.hitEnemies) poop.hitEnemies.add(boss);
+      boss.takeDamage(projectileDamage);
+      return;
+    }
+
+    // Impacto direto: boss absorve o dano total e o projetil some.
+    boss.takeDamage(projectileDamage);
+    poop.destroy();
+  }
+
+  handlePoopHit(poop, enemy) {
+    if (enemy.isDead || !enemy.active) return;
+
+    // Se for uma explosao, garante que so da dano UMA VEZ em cada inimigo.
+    if (poop.isExploding) {
+      if (poop.hitEnemies && poop.hitEnemies.has(enemy)) return;
+      if (poop.hitEnemies) poop.hitEnemies.add(enemy);
+    }
+
+    const enemyCurrentHP = enemy.hp || 1;
+
+    if (typeof enemy.takeDamage === 'function') {
+      enemy.takeDamage(poop.damage);
+    } else if (typeof enemy.die === 'function') {
+      enemy.die();
+    }
+
+    // Regra de penetracao e destruicao (apenas para o projetil em voo).
+    if (!poop.isExploding) {
+      if (poop.damage > enemyCurrentHP) {
+        poop.damage -= enemyCurrentHP;
+        if (poop.auraFX) {
+          poop.auraFX.outerStrength = Math.max(poop.auraFX.outerStrength - 1, 0);
+        }
+      } else {
+        // Absorvido: some sem explodir.
+        poop.destroy();
+      }
+    }
+  }
+
+  beginBossFight() {
+    this.isBossFightActive = true;
+
+    this.events.once('bossIntroComplete', () => {
+      this.startBossFightFruits();
+    });
+
+    this.events.once('bossDefeated', () => {
+      this.stopBossFightFruits();
+    });
+
+    if (this.bossFruitTimer) {
+      this.bossFruitTimer.remove(false);
+      this.bossFruitTimer = null;
+    }
+
+    if (this.fruits) {
+      this.fruits.getChildren().forEach((fruit) => {
+        if (fruit && fruit.active) fruit.destroy();
+      });
+    }
+
+  }
+
+  startBossFightFruits() {
+    if (!this.isBossFightActive || this.isPaused || this.isGameOver || !this.boss || this.boss.isDead) return;
+
+    if (this.bossFruitTimer) {
+      this.bossFruitTimer.remove(false);
+      this.bossFruitTimer = null;
+    }
+
+    this.bossFruitTimer = this.time.addEvent({
+      delay: 4500,
+      loop: true,
+      callback: () => {
+        if (!this.isBossFightActive || this.isPaused || this.isGameOver || !this.boss || this.boss.isDead) return;
+        this.spawnBossDecorationFruit();
+      }
+    });
+  }
+
+  stopBossFightFruits() {
+    this.isBossFightActive = false;
+
+    if (this.bossFruitTimer) {
+      this.bossFruitTimer.remove(false);
+      this.bossFruitTimer = null;
+    }
+
+    if (this.fruits) {
+      this.fruits.getChildren().forEach((fruit) => {
+        if (fruit && fruit.active && fruit.isStaticDecoration) fruit.destroy();
+      });
+    }
+  }
+
+  spawnBossDecorationFruit() {
+    const w = this.scale.width;
+    const treeTopY = 300;
+    const treeBottomY = 600;
+    const leftTreeX = 120;
+    const rightTreeX = w - 120;
+
+    const fruitType = Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
+    const spawnX = Phaser.Math.Between(leftTreeX, rightTreeX);
+    const spawnY = Phaser.Math.Between(treeTopY, treeBottomY);
+    this.fruits.add(new Fruit(this, spawnX, spawnY, fruitType, true));
   }
 
   update(time, delta) {

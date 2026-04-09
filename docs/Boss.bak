@@ -6,8 +6,8 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
 
         this.setDepth(100);
         this.setScale(7); 
-        this.hp = 400;
-        this.maxHp = 400;
+        this.hp = 1000;
+        this.maxHp = 1000;
         this.isDead = false;
         this.isInvulnerable = true;
         this.walkState = null;
@@ -18,7 +18,6 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
         this.sideSwapCount = 0;
         this.isSideSwapAttackRunning = false;
         this.nextAttackTimer = null;
-        this.lastScriptAttack = null;
 
         this.HITBOX_BASELINE = 48;
         this.WALK_SPEED = 250;
@@ -110,10 +109,6 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
         return this.groundY;
     }
 
-    getBirdY() {
-        return this.scene && this.scene.bird ? this.scene.bird.y : this.y;
-    }
-
     registerSideSwap() {
         this.sideSwapCount += 1;
         if (this.sideSwapCount < 6) return false;
@@ -139,12 +134,11 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
             if (this.isDead) return;
 
             const birdX = this.scene.bird ? this.scene.bird.x : this.x;
-            
-            let spawnX = birdX;
+            let spawnX = (birdX < 960) ? birdX + 380 : birdX - 380;
             if (spawnX > 1800) spawnX = 1800;
             if (spawnX < 100) spawnX = 100;
 
-            const spawnY = this.getBirdY() + 155;
+            const spawnY = this.getGroundY();
             this.beginSpecialTweenMovement();
             if (this.body) this.body.reset(spawnX, spawnY);
             else this.setPosition(spawnX, spawnY);
@@ -197,9 +191,6 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
             onComplete: () => {
                 this.playAnimation('boss_idle');
                 this.scene.time.delayedCall(2000, () => {
-                            if (this.scene && this.scene.events) {
-                                this.scene.events.emit('bossIntroComplete', this);
-                            }
                     this.startBattle();
                 });
             }
@@ -228,11 +219,8 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
         
         this.playAnimation('boss_idle');
         if (this.body) this.body.setAllowGravity(true); // Fica de pé aguardando
-
-        const hpRatio = this.hp / this.maxHp;
-        const delay = hpRatio <= 0.35
-            ? Phaser.Math.Between(900, 1700)
-            : Phaser.Math.Between(650, 1400);
+        
+        const delay = Phaser.Math.Between(1000, 2000);
         
         this.nextAttackTimer = this.scene.time.delayedCall(delay, () => {
             this.nextAttackTimer = null;
@@ -242,58 +230,15 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
     }
 
     executeRandomAttack() {
-        const chosen = this.chooseScriptAttack();
-        this.lastScriptAttack = chosen;
+        // O Passeio (Walk) agora faz parte da rotação de ataques!
+        const attacks = ['dash', 'spin', 'teleport', 'teleport_strike', 'walk'];
+        const chosen = Phaser.Utils.Array.GetRandom(attacks);
 
         if (chosen === 'dash') this.performDashAttack();
         else if (chosen === 'spin') this.performSpinAttack();
         else if (chosen === 'teleport') this.performTeleport();
         else if (chosen === 'teleport_strike') this.performTeleportStrike();
         else if (chosen === 'walk') this.performWalk();
-    }
-
-    chooseScriptAttack() {
-        const birdX = this.scene.bird ? this.scene.bird.x : this.x;
-        const distanceX = Math.abs(this.x - birdX);
-        const hpRatio = this.hp / this.maxHp;
-
-        let pool;
-        if (hpRatio > 0.7) {
-            if (distanceX > 700) {
-                pool = ['dash', 'dash', 'spin', 'walk'];
-            } else if (distanceX > 360) {
-                pool = ['dash', 'spin', 'spin', 'walk'];
-            } else {
-                pool = ['spin', 'dash', 'spin', 'walk'];
-            }
-        } else if (hpRatio > 0.35) {
-            if (distanceX > 700) {
-                pool = ['dash', 'dash', 'teleport_strike', 'walk'];
-            } else if (distanceX > 360) {
-                pool = ['dash', 'spin', 'teleport_strike', 'walk'];
-            } else {
-                pool = ['spin', 'dash', 'teleport_strike', 'walk'];
-            }
-        } else {
-            if (distanceX > 700) {
-                pool = ['dash', 'dash', 'teleport', 'walk'];
-            } else if (distanceX > 360) {
-                pool = ['dash', 'spin', 'teleport', 'walk'];
-            } else {
-                pool = ['spin', 'dash', 'teleport', 'walk'];
-            }
-        }
-
-        if (this.lastScriptAttack) {
-            const filtered = pool.filter((attack) => attack !== this.lastScriptAttack);
-            if (filtered.length > 0) pool = filtered;
-        }
-
-        if (distanceX < 260 && hpRatio > 0.35) {
-            pool.push('teleport_strike', 'teleport_strike', 'spin');
-        }
-
-        return Phaser.Utils.Array.GetRandom(pool);
     }
 
     performWalk() {
@@ -437,7 +382,7 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
             if (spawnX > 1800) spawnX = 1800; 
             if (spawnX < 100) spawnX = 100;
 
-            const spawnY = this.getBirdY() + 155;
+            const spawnY = this.getGroundY();
             if (this.body) this.body.reset(spawnX, spawnY);
             else this.setPosition(spawnX, spawnY);
 
@@ -585,9 +530,6 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
         if (this.nextAttackTimer) {
             this.nextAttackTimer.remove(false);
             this.nextAttackTimer = null;
-        }
-        if (this.scene && this.scene.events) {
-            this.scene.events.emit('bossDefeated', this);
         }
         
         this.scene.tweens.killTweensOf(this); 

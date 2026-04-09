@@ -596,11 +596,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     if (this.ammo > 0 && currentTime > this.lastShootTime + this.shootDelay && this.scene.isGameStarted && !this.isDead) {
       this.ammo--;
       this.lastShootTime = currentTime;
-      
-      // Define a direção com base no flipX (Se flipX for true, está olhando para a ESQUERDA)
-      const direction = this.flipX ? -1 : 1;
-      
-      const poop = new Poop(this.scene, this.x, this.y + 15, direction, this.body.velocity.x, this.level);
+      const poop = new Poop(this.scene, this.x, this.y + 15, this.body.velocity.x, this.level);
       if (this.scene.poops) {
         this.scene.poops.add(poop);
       }

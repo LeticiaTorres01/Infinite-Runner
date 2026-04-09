@@ -1,5 +1,5 @@
 export default class Fruit extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, y, texture) {
+  constructor(scene, x, y, texture, isStaticDecoration = false) {
     super(scene, x, y, texture);
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -8,10 +8,13 @@ export default class Fruit extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(15);
     // Define o ponto de rotação no topo para parecer pendurada
     this.setOrigin(0.5, 0); 
+    this.isStaticDecoration = isStaticDecoration;
 
     if (this.body) {
       this.body.setAllowGravity(false);
-      this.body.setVelocityX(-200); 
+      this.body.setVelocity(0, 0);
+      this.body.setImmovable(isStaticDecoration);
+      if (!isStaticDecoration) this.body.setVelocityX(-200);
     }
 
     this.isCollected = false;
@@ -44,7 +47,7 @@ export default class Fruit extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(time) {
-    if (this.x < -100) {
+    if (!this.isStaticDecoration && this.x < -100) {
       this.destroy();
       return;
     }

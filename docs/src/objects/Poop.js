@@ -1,6 +1,6 @@
 export default class Poop extends Phaser.Physics.Arcade.Sprite {
-  // ATENÇÃO: Nova assinatura recebendo 'direction' e 'birdLevel'
-  constructor(scene, x, y, direction, birdVelocityX, birdLevel = 1) {
+  // ATENÇÃO: Nova assinatura recebendo o 'birdLevel'
+  constructor(scene, x, y, velocityX, birdLevel = 1) {
     super(scene, x, y, 'poop');
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -11,7 +11,8 @@ export default class Poop extends Phaser.Physics.Arcade.Sprite {
     this.setOrigin(0.5, 1); // Âncora na base para não afundar no chão
     this.setDepth(15);
 
-    // ... (configurações continuam iguais)
+    // TABELA DE STATUS DO COCÔ (Level: {dmg, radius, row, glowStr, glowColor, expScale, aoeW, aoeH})
+    // O Game Designer pode alterar livremente esses valores para balancear o jogo!
     this.poopConfig = {
         1: { dmg: 1, radius: 25, row: 7, glowStr: 1, glowColor: 0x8B4513, expScale: 1.5, aoeW: 0, aoeH: 0 }, 
         2: { dmg: 2, radius: 30, row: 6, glowStr: 1, glowColor: 0xA0522D, expScale: 2.0, aoeW: 60, aoeH: 30 }, 
@@ -36,15 +37,12 @@ export default class Poop extends Phaser.Physics.Arcade.Sprite {
 
     this.auraFX = this.preFX.addGlow(config.glowColor, config.glowStr, 0, false, 0.1, 10);
 
-    // FÍSICA CORRIGIDA: Usa a direção que o pássaro está olhando
+    // FÍSICA ORIGINAL (Mais natural como solicitado)
     if (this.body) {
         this.body.setCircle(8, 0, 0); 
         this.body.setAllowGravity(true);
         this.body.setGravityY(800); 
-        
-        // Se direction for 1 (Direita), atira para frente. Se -1 (Esquerda), atira para trás.
-        const baseVelocityX = direction * 200; 
-        this.body.setVelocityX(baseVelocityX + (birdVelocityX * 0.5)); 
+        this.body.setVelocityX((velocityX * 0.01) - 100); 
     }
   }
 
