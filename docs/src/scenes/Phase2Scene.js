@@ -577,21 +577,28 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.sound.stopAll();
     
-    // Carrega volume master das configurações
-    const masterVolume = SettingsService.getMasterVolume() / 100; // Normaliza de 0-100 para 0-1
-    this.sfxMasterVolume = masterVolume;
-    this.sound.volume = masterVolume;
+    // Carrega volumes das configurações
+    const masterVolume = SettingsService.getMasterVolume() / 100;     // 0-1
+    const musicVolume = SettingsService.getMusicVolume() / 100;       // 0-1
+    const fxVolume = SettingsService.getFxVolume() / 100;             // 0-1
+    
+    this.sfxMasterVolume = fxVolume;  // Aplica volume de efeitos aos SFX
     
     this.bgmPhase2 = this.sound.add('bgm_phase2', { loop: true, volume: 0 });
     this.bgmRexInfernum = this.sound.add('bgm_rex_infernum', { loop: true, volume: 0 });
     this.bgmBossDieCredits = this.sound.add('bgm_boss_die_credits', { loop: true, volume: 0 });
-    this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0.3 });
+    this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0 });
 
     this.transitionToMusic(this.bgmPhase2, 0.4, 2000);
   }
 
   transitionToMusic(nextTrack, targetVolume = 0.4, duration = 2000) {
     if (!nextTrack) return;
+
+    // Aplica volumes master e música ao targetVolume
+    const masterVolume = SettingsService.getMasterVolume() / 100;
+    const musicVolume = SettingsService.getMusicVolume() / 100;
+    const adjustedVolume = targetVolume * masterVolume * musicVolume;
 
     const allTracks = [this.bgmPhase2, this.bgmRexInfernum, this.bgmBossDieCredits].filter(Boolean);
 
@@ -616,7 +623,7 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.tweens.add({
       targets: nextTrack,
-      volume: targetVolume,
+      volume: adjustedVolume,
       duration
     });
   }
@@ -1669,7 +1676,13 @@ export default class Phase2Scene extends Phaser.Scene {
         if (this.bgmPhase2) this.bgmPhase2.pause(); 
         if (this.bgmRexInfernum) this.bgmRexInfernum.pause();
         if (this.bgmBossDieCredits) this.bgmBossDieCredits.pause();
-        if (this.bgmPause) this.bgmPause.play();
+        if (this.bgmPause) {
+          const pauseBaseVolume = 0.3;
+          const masterVolume = SettingsService.getMasterVolume() / 100;
+          const musicVolume = SettingsService.getMusicVolume() / 100;
+          this.bgmPause.setVolume(pauseBaseVolume * masterVolume * musicVolume);
+          this.bgmPause.play();
+        }
     } else {
         this.physics.resume();
         this.anims.resumeAll(); 

@@ -41,13 +41,14 @@ export default class InitialSceneD extends Phaser.Scene {
     this.isStartingGame = false;
 
     // Toca música pre-start (conforme pedido, única para toda a apresentação)
-    // Aplica volume master das configurações
+    const baseMenuVolume = 0.5;
     const masterVolume = SettingsService.getMasterVolume() / 100;
-    this.sound.volume = masterVolume;
-    
+    const musicVolume = SettingsService.getMusicVolume() / 100;
+    const menuTargetVolume = baseMenuVolume * masterVolume * musicVolume;
+
     this.bgmMenu = this.sound.add('bgm_pre_start', { loop: true, volume: 0 });
     this.bgmMenu.play();
-    this.tweens.add({ targets: this.bgmMenu, volume: 0.5, duration: 2000 });
+    this.tweens.add({ targets: this.bgmMenu, volume: menuTargetVolume, duration: 2000 });
 
     // --- LÓGICA DE PARALLAX ---
     const addLayer = (key, speed, isLight = false) => {
@@ -220,8 +221,6 @@ export default class InitialSceneD extends Phaser.Scene {
 
   startFromMenu(targetScene, payload, hideTargets) {
     this.isStartingGame = true;
-    this.sound.play('bgm_pause', { volume: 0.5 });
-
     this.tweens.add({ targets: this.bgmMenu, volume: 0, duration: 1500 });
     this.tweens.add({
       targets: hideTargets,
@@ -362,7 +361,9 @@ export default class InitialSceneD extends Phaser.Scene {
 
     // Carrega configurações atuais
     const currentScheme = SettingsService.getControlScheme();
-    const currentVolume = SettingsService.getMasterVolume();
+    const currentMasterVolume = SettingsService.getMasterVolume();
+    const currentMusicVolume = SettingsService.getMusicVolume();
+    const currentFxVolume = SettingsService.getFxVolume();
 
     // Grupo do modal
     const modalGroup = this.add.group();
@@ -377,9 +378,9 @@ export default class InitialSceneD extends Phaser.Scene {
     });
     modalGroup.add(overlay);
 
-    // Painel central (estilo consistente com PLAY modal)
+    // Painel central (estilo consistente com PLAY modal, aumentado para 3 sliders)
     const panelWidth = 1100;
-    const panelHeight = 700;
+    const panelHeight = 850;
     const panel = this.add.rectangle(w / 2, h / 2, panelWidth, panelHeight, 0x0d111a, 0.96).setDepth(2001).setStrokeStyle(4, 0x00aaff);
     modalGroup.add(panel);
 
@@ -437,7 +438,7 @@ export default class InitialSceneD extends Phaser.Scene {
     });
 
     // --- SEÇÃO DE VOLUME ---
-    const volLabel = this.add.text(w / 2 - 450, h / 2 + 20, 'VOLUME MASTER', {
+    const volLabel = this.add.text(w / 2 - 450, h / 2 + 20, 'VOLUMES', {
       fontSize: '38px', fontFamily: 'KenneyPixel', fill: '#ffff00', stroke: '#000', strokeThickness: 4
     }).setOrigin(0, 0.5).setDepth(2002);
     modalGroup.add(volLabel);
@@ -446,85 +447,122 @@ export default class InitialSceneD extends Phaser.Scene {
     const line2 = this.add.rectangle(w / 2, h / 2 + 55, panelWidth - 100, 2, 0x00aaff, 0.6).setDepth(2001);
     modalGroup.add(line2);
 
-    // Display do volume
-    const volumeDisplay = this.add.text(w / 2 + 380, h / 2 + 110, `${currentVolume.toFixed(0)}%`, {
-      fontSize: '44px', fontFamily: 'KenneyPixel', fill: '#fff', 
-      backgroundColor: '#1e4a7a', stroke: '#00aaff', strokeThickness: 3,
-      padding: { x: 16, y: 10 }
-    }).setOrigin(0.5).setDepth(2002);
-    modalGroup.add(volumeDisplay);
+    // Função helper para criar um slider de volume
+    const createVolumeSlider = (yOffset, label, currentVolume, setter) => {
+      // Label do slider
+      const sliderLabel = this.add.text(w / 2 - 450, h / 2 + yOffset, label, {
+        fontSize: '28px', fontFamily: 'KenneyPixel', fill: '#89a9d6', stroke: '#000', strokeThickness: 2
+      }).setOrigin(0, 0.5).setDepth(2002);
+      modalGroup.add(sliderLabel);
 
-    // Slider
-    const sliderX = w / 2 - 200;
-    const sliderWidth = 300;
-    const sliderY = h / 2 + 110;
+      // Display do volume
+      const volumeDisplay = this.add.text(w / 2 + 380, h / 2 + yOffset, `${currentVolume.toFixed(0)}%`, {
+        fontSize: '36px', fontFamily: 'KenneyPixel', fill: '#fff', 
+        backgroundColor: '#1e4a7a', stroke: '#00aaff', strokeThickness: 2,
+        padding: { x: 12, y: 8 }
+      }).setOrigin(0.5).setDepth(2002);
+      modalGroup.add(volumeDisplay);
 
-    // Barra de fundo
-    const sliderBg = this.add.rectangle(sliderX + sliderWidth / 2, sliderY, sliderWidth, 25, 0x333, 1).setOrigin(0.5).setDepth(2001).setStrokeStyle(2, 0x00aaff);
-    modalGroup.add(sliderBg);
+      // Slider
+      const sliderX = w / 2 - 200;
+      const sliderWidth = 300;
+      const sliderY = h / 2 + yOffset;
 
-    // Barra de progresso
-    const sliderFill = this.add.rectangle(sliderX + ((currentVolume / 100) * sliderWidth) / 2, sliderY, (currentVolume / 100) * sliderWidth, 25, 0x00ff00, 1).setOrigin(0.5, 0.5).setDepth(2001);
-    modalGroup.add(sliderFill);
+      // Barra de fundo
+      const sliderBg = this.add.rectangle(sliderX + sliderWidth / 2, sliderY, sliderWidth, 20, 0x333, 1).setOrigin(0.5).setDepth(2001).setStrokeStyle(2, 0x00aaff);
+      modalGroup.add(sliderBg);
 
-    const refreshVolumeBar = (volume) => {
-      const normalizedVolume = Phaser.Math.Clamp(volume, 0, 100);
-      const fillWidth = (normalizedVolume / 100) * sliderWidth;
-      sliderFill.setDisplaySize(fillWidth, 25);
-      sliderFill.setPosition(sliderX + fillWidth / 2, sliderY);
+      // Barra de progresso
+      const sliderFill = this.add.rectangle(sliderX + ((currentVolume / 100) * sliderWidth) / 2, sliderY, (currentVolume / 100) * sliderWidth, 20, 0x00ff00, 1).setOrigin(0.5, 0.5).setDepth(2001);
+      modalGroup.add(sliderFill);
+
+      const refreshVolumeBar = (volume) => {
+        const normalizedVolume = Phaser.Math.Clamp(volume, 0, 100);
+        const fillWidth = (normalizedVolume / 100) * sliderWidth;
+        sliderFill.setDisplaySize(fillWidth, 20);
+        sliderFill.setPosition(sliderX + fillWidth / 2, sliderY);
+      };
+
+      // Atualiza volume ao clicar na barra
+      const updateVolume = (x) => {
+        const relativeX = Phaser.Math.Clamp(x - sliderX, 0, sliderWidth);
+        const newVol = (relativeX / sliderWidth) * 100;
+        setter(newVol);
+        volumeDisplay.setText(`${newVol.toFixed(0)}%`);
+        refreshVolumeBar(newVol);
+      };
+
+      sliderBg.setInteractive();
+      sliderBg.on('pointerdown', (pointer) => updateVolume(pointer.x));
+      sliderBg.on('pointermove', (pointer) => {
+        if (pointer.isDown) updateVolume(pointer.x);
+      });
+
+      // Botão - para volume
+      const decBtn = this.add.text(sliderX - 60, sliderY, ' − ', {
+        fontSize: '36px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#8a2b2b', 
+        stroke: '#fff', strokeThickness: 2,
+        padding: { x: 10, y: 4 }
+      }).setOrigin(0.5).setDepth(2002).setInteractive({ useHandCursor: true });
+
+      decBtn.on('pointerdown', () => {
+        const currentVal = volumeDisplay.text.replace('%', '');
+        const vol = Math.max(0, parseFloat(currentVal) - 5);
+        setter(vol);
+        volumeDisplay.setText(`${vol.toFixed(0)}%`);
+        refreshVolumeBar(vol);
+      });
+      modalGroup.add(decBtn);
+
+      // Botão + para volume
+      const incBtn = this.add.text(sliderX + sliderWidth + 60, sliderY, ' + ', {
+        fontSize: '36px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#2d5a27', 
+        stroke: '#fff', strokeThickness: 2,
+        padding: { x: 10, y: 4 }
+      }).setOrigin(0.5).setDepth(2002).setInteractive({ useHandCursor: true });
+
+      incBtn.on('pointerdown', () => {
+        const currentVal = volumeDisplay.text.replace('%', '');
+        const vol = Math.min(100, parseFloat(currentVal) + 5);
+        setter(vol);
+        volumeDisplay.setText(`${vol.toFixed(0)}%`);
+        refreshVolumeBar(vol);
+      });
+      modalGroup.add(incBtn);
     };
 
-    refreshVolumeBar(currentVolume);
-
-    // Atualiza volume ao clicar na barra
-    const updateVolume = (x) => {
-      const relativeX = Phaser.Math.Clamp(x - sliderX, 0, sliderWidth);
-      const newVol = (relativeX / sliderWidth) * 100;
-      SettingsService.setMasterVolume(newVol);
-      volumeDisplay.setText(`${newVol.toFixed(0)}%`);
-      refreshVolumeBar(newVol);
-      this.sound.volume = newVol / 100;
-    };
-
-    sliderBg.on('pointerdown', (pointer) => updateVolume(pointer.x));
-    sliderBg.on('pointermove', (pointer) => {
-      if (pointer.isDown) updateVolume(pointer.x);
-    });
-
-    // Botões -/+ para volume
-    const decBtn = this.add.text(sliderX - 60, sliderY, ' − ', {
-      fontSize: '44px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#8a2b2b', 
-      stroke: '#fff', strokeThickness: 2,
-      padding: { x: 12, y: 6 }
-    }).setOrigin(0.5).setDepth(2002).setInteractive({ useHandCursor: true });
-
-    decBtn.on('pointerdown', () => {
-      const vol = Math.max(0, SettingsService.getMasterVolume() - 5);
+    // Criar 3 sliders verticalmente stackados
+    createVolumeSlider(100, 'Master:', currentMasterVolume, (vol) => {
       SettingsService.setMasterVolume(vol);
-      volumeDisplay.setText(`${vol.toFixed(0)}%`);
-      refreshVolumeBar(vol);
-      this.sound.volume = vol / 100;
+      // Também atualiza volume da música em tempo real
+      if (this.bgmMenu && this.bgmMenu.isPlaying) {
+        const baseMenuVolume = 0.5;
+        const masterVol = vol / 100;
+        const musicVol = SettingsService.getMusicVolume() / 100;
+        const finalVol = baseMenuVolume * masterVol * musicVol;
+        this.bgmMenu.setVolume(finalVol);
+      }
     });
 
-    const incBtn = this.add.text(sliderX + sliderWidth + 60, sliderY, ' + ', {
-      fontSize: '44px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#2d5a27', 
-      stroke: '#fff', strokeThickness: 2,
-      padding: { x: 12, y: 6 }
-    }).setOrigin(0.5).setDepth(2002).setInteractive({ useHandCursor: true });
-
-    incBtn.on('pointerdown', () => {
-      const vol = Math.min(100, SettingsService.getMasterVolume() + 5);
-      SettingsService.setMasterVolume(vol);
-      volumeDisplay.setText(`${vol.toFixed(0)}%`);
-      refreshVolumeBar(vol);
-      this.sound.volume = vol / 100;
+    createVolumeSlider(180, 'Música:', currentMusicVolume, (vol) => {
+      SettingsService.setMusicVolume(vol);
+      // Atualiza volume da música em tempo real (menu atual + cenas futuras)
+      if (this.bgmMenu && this.bgmMenu.isPlaying) {
+        const baseMenuVolume = 0.5;
+        const masterVol = SettingsService.getMasterVolume() / 100;
+        const musicVol = vol / 100;
+        const finalVol = baseMenuVolume * masterVol * musicVol;
+        this.bgmMenu.setVolume(finalVol);
+      }
     });
 
-    modalGroup.add(decBtn);
-    modalGroup.add(incBtn);
+    createVolumeSlider(260, 'Efeitos:', currentFxVolume, (vol) => {
+      SettingsService.setFxVolume(vol);
+      // Volume de efeitos será aplicado quando trocar de cena ou em tempo real via playSfx()
+    });
 
     // Botão de fechar (OK)
-    const closeBtn = this.add.text(w / 2, h / 2 + 280, ' OK ', {
+    const closeBtn = this.add.text(w / 2, h / 2 + 350, ' OK ', {
       fontSize: '52px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#2d5a27', 
       stroke: '#000', strokeThickness: 4,
       padding: { x: 50, y: 15 }

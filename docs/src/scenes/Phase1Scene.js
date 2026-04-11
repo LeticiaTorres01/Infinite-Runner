@@ -757,19 +757,22 @@ export default class Phase1Scene extends Phaser.Scene {
     // SOUND MANAGER
     this.sound.stopAll();
     
-    // Carrega volume master das configurações
-    const masterVolume = SettingsService.getMasterVolume() / 100; // Normaliza de 0-100 para 0-1
-    this.sfxMasterVolume = masterVolume;
+    // Carrega volumes das configurações
+    const masterVolume = SettingsService.getMasterVolume() / 100;     // 0-1
+    const musicVolume = SettingsService.getMusicVolume() / 100;       // 0-1
+    const fxVolume = SettingsService.getFxVolume() / 100;             // 0-1
+    
+    this.sfxMasterVolume = fxVolume;  // Aplica volume de efeitos aos SFX
     
     this.bgmPhase1 = this.sound.add('bgm_phase1', { loop: true, volume: 0 });
     this.bgmPhase1Music2 = this.sound.add('bgm_phase1_music2', { loop: true, volume: 0 });
-    this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0.3 });
+    this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0 });
     this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
     
     this.bgmPhase1.play();
     this.tweens.add({
         targets: this.bgmPhase1,
-        volume: 0.4 * masterVolume,  // Aplica volume master à transição
+        volume: 0.4 * masterVolume * musicVolume,  // Aplica volume master + música
         duration: 2000
     });
 
@@ -1029,6 +1032,11 @@ export default class Phase1Scene extends Phaser.Scene {
     transitionToMusic(nextTrack, targetVolume = 0.4, duration = 2000) {
         if (!nextTrack) return;
 
+        // Aplica volumes master e música ao targetVolume
+        const masterVolume = SettingsService.getMasterVolume() / 100;
+        const musicVolume = SettingsService.getMusicVolume() / 100;
+        const adjustedVolume = targetVolume * masterVolume * musicVolume;
+
         const allTracks = [this.bgmPhase1, this.bgmPhase1Music2].filter(Boolean);
 
         allTracks.forEach((track) => {
@@ -1052,7 +1060,7 @@ export default class Phase1Scene extends Phaser.Scene {
 
         this.tweens.add({
             targets: nextTrack,
-            volume: targetVolume,
+            volume: adjustedVolume,
             duration
         });
     }
@@ -1704,6 +1712,10 @@ export default class Phase1Scene extends Phaser.Scene {
         });
 
         if (this.bgmPause) {
+            const pauseBaseVolume = 0.3;
+            const masterVolume = SettingsService.getMasterVolume() / 100;
+            const musicVolume = SettingsService.getMusicVolume() / 100;
+            this.bgmPause.setVolume(pauseBaseVolume * masterVolume * musicVolume);
             if (this.bgmPause.isPlaying) this.bgmPause.stop();
             this.bgmPause.play();
         }

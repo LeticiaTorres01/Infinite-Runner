@@ -9,7 +9,9 @@ export class SettingsService {
 
   static DEFAULTS = {
     controlScheme: 'arrows', // 'arrows' | 'wsad' | 'vim'
-    masterVolume: 50         // 0-100
+    masterVolume: 50,        // 0-100
+    musicVolume: 70,         // 0-100
+    fxVolume: 80             // 0-100
   };
 
   static VALID_CONTROL_SCHEMES = ['arrows', 'wsad', 'vim'];
@@ -17,7 +19,7 @@ export class SettingsService {
   /**
    * Carrega configurações do localStorage ou retorna defaults.
    * Inclui migração defensiva (valida esquema, corrige valores fora de intervalo).
-   * @returns {Object} { controlScheme, masterVolume }
+   * @returns {Object} { controlScheme, masterVolume, musicVolume, fxVolume }
    */
   static loadSettings() {
     try {
@@ -36,7 +38,7 @@ export class SettingsService {
 
   /**
    * Salva configurações no localStorage.
-   * @param {Object} settings - { controlScheme, masterVolume }
+   * @param {Object} settings - { controlScheme, masterVolume, musicVolume, fxVolume }
    * @returns {boolean} true se sucesso, false se falhar
    */
   static saveSettings(settings) {
@@ -51,7 +53,7 @@ export class SettingsService {
   }
 
   /**
-   * Validator + normalizer: garante que controlScheme é válido e volume está em [0, 100].
+   * Validator + normalizer: garante que controlScheme é válido e volumes estão em [0, 100].
    * @private
    */
   static _validateAndNormalize(settings) {
@@ -63,6 +65,14 @@ export class SettingsService {
 
     if (typeof settings.masterVolume === 'number') {
       result.masterVolume = Math.max(0, Math.min(100, settings.masterVolume));
+    }
+
+    if (typeof settings.musicVolume === 'number') {
+      result.musicVolume = Math.max(0, Math.min(100, settings.musicVolume));
+    }
+
+    if (typeof settings.fxVolume === 'number') {
+      result.fxVolume = Math.max(0, Math.min(100, settings.fxVolume));
     }
 
     return result;
@@ -104,6 +114,44 @@ export class SettingsService {
   static setMasterVolume(volume) {
     const current = this.loadSettings();
     return this.saveSettings({ ...current, masterVolume: volume });
+  }
+
+  /**
+   * Retorna volume de música atual (0-100).
+   * @returns {number}
+   */
+  static getMusicVolume() {
+    const settings = this.loadSettings();
+    return settings.musicVolume;
+  }
+
+  /**
+   * Define volume de música (0-100) e persiste.
+   * @param {number} volume - 0-100
+   * @returns {boolean} true se sucesso
+   */
+  static setMusicVolume(volume) {
+    const current = this.loadSettings();
+    return this.saveSettings({ ...current, musicVolume: volume });
+  }
+
+  /**
+   * Retorna volume de efeitos sonoros atual (0-100).
+   * @returns {number}
+   */
+  static getFxVolume() {
+    const settings = this.loadSettings();
+    return settings.fxVolume;
+  }
+
+  /**
+   * Define volume de efeitos sonoros (0-100) e persiste.
+   * @param {number} volume - 0-100
+   * @returns {boolean} true se sucesso
+   */
+  static setFxVolume(volume) {
+    const current = this.loadSettings();
+    return this.saveSettings({ ...current, fxVolume: volume });
   }
 
   /**
