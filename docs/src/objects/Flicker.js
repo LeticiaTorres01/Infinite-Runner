@@ -13,11 +13,11 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
       this.body.setAllowGravity(false); 
       this.body.setSize(20, 20);
       this.body.setOffset(6, 6);
-      this.body.setVelocityX(-200); 
+      this.body.setVelocityX(-160); 
     }
 
     this.play('flicker_idle_anim');
-    this.hp = 3;
+    this.hp = 2;
     this.xpValue = 10;
     this.scoreValue = 50;
     this.isDead = false;
@@ -31,7 +31,7 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
   upgrade() {
     if (this.isUpgraded) return;
     this.isUpgraded = true;
-    this.hp = 6;
+    this.hp = 5;
     
     this.glowFX = this.preFX.addGlow(0x9900ff, 4, 0, false, 0.1, 10);
     this.scene.tweens.add({
@@ -47,8 +47,8 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
   ultimateUpgrade() {
     this.upgrade();
     this.isUltimate = true;
-    this.hp = 10;
-    this.setScale(2.2); // Um pouco maior
+    this.hp = 9;
+    this.setScale(2.5); // Um pouco maior
     this.detectionRadius = 5000; // Persegue de qualquer lugar
     this.chaseSpeed = 220;
     
@@ -128,10 +128,13 @@ export default class Flicker extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  die() {
+  die(awardXP = true) {
     if (this.isDead) return;
     this.isDead = true;
-    if (this.scene.bird && !this.scene.bird.isDead) {
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('flicker_die', { volume: 0.75 });
+    }
+    if (awardXP && this.scene.bird && !this.scene.bird.isDead) {
       this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
     }
     if (this.body) {

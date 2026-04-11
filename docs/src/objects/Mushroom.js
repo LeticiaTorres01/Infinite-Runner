@@ -16,7 +16,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
       this.body.setOffset(27, 29);
     }
 
-    this.hp = 8;
+    this.hp = 4;
     this.xpValue = 20; // REDUZIDO DE 40 PARA 20
     this.scoreValue = 100;
     this.isDead = false;
@@ -49,7 +49,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
   upgrade() {
     if (this.isUpgraded) return;
     this.isUpgraded = true;
-    this.hp = 12; // REDUZIDO DE 20 PARA 12 (4 hits de Dash no Level 4)
+    this.hp = 8; // REDUZIDO DE 20 PARA 12 (4 hits de Dash no Level 4)
     this.stunDuration = 500; 
     
     this.glowFX = this.preFX.addGlow(0xff8800, 4, 1, false, 0.1, 10);
@@ -66,7 +66,7 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
   ultimateUpgrade() {
     this.upgrade();
     this.isUltimate = true;
-    this.hp = 35;
+    this.hp = 16;
     this.walkSpeed = 220;
     
     // Aura Roxa Ultimate
@@ -200,10 +200,13 @@ export default class Mushroom extends Phaser.Physics.Arcade.Sprite {
     if (this.x < -1000 || this.x > screenWidth + 1000) this.destroy();
   }
 
-  die() {
+    die(awardXP = true) {
     if (this.isDead) return;
     this.isDead = true;
-    if (this.scene.bird && !this.scene.bird.isDead) {
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+        this.scene.playSfx('mushroom_die', { volume: 0.75 });
+    }
+        if (awardXP && this.scene.bird && !this.scene.bird.isDead) {
         this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
     }
     if (this.body) {

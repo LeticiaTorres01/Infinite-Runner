@@ -15,7 +15,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 800 }, // Aumentado para compensar a resolução maior
-            debug: true, // Ativa o modo de depuração para ver os corpos físicos
+            debug: false, // Ativa o modo de depuração para ver os corpos físicos
         }
     },
     scene: [InitialSceneD, Phase1Scene, Phase2Scene, CreditsScene]

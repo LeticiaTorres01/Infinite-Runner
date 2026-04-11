@@ -39,6 +39,9 @@ export default class GoldCoin extends Phaser.Physics.Arcade.Sprite {
   collect(bird) {
     if (this.isCollected) return;
     this.isCollected = true;
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('gold_coin', { volume: 0.7 });
+    }
     
     // Concede pontos e XP balanceados para o Round 3
     bird.gainExperience(10, 100); // 10 XP, 100 Pontos

@@ -34,6 +34,10 @@ export default class Fruit extends Phaser.Physics.Arcade.Sprite {
   collect(bird) {
     if (this.isCollected) return;
     this.isCollected = true;
+
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('food', { volume: 0.8 });
+    }
     
     bird.gainAmmo(2);
     

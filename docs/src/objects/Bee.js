@@ -38,7 +38,7 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
   upgrade() {
     if (this.isUpgraded) return;
     this.isUpgraded = true;
-    this.hp = 6;
+    this.hp = 8;
     
     this.glowFX = this.preFX.addGlow(0xff0000, 2, 0, false, 0.1, 10);
     this.scene.tweens.add({
@@ -107,8 +107,7 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     this.isDashing = true;
     this.play('bee_attack_anim');
 
-    // Versão Ultimate NUNCA faz dash suicida
-    if (!this.isUltimate && this.attackCount >= 9) {
+    if (!this.isUltimate && (this.isUpgraded ? this.attackCount >= 14 : this.attackCount >= 7)) {
         this.isSuicideDash = true;
     }
 
@@ -148,11 +147,14 @@ export default class Bee extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  die() {
+  die(awardXP = true) {
     if (this.isDead) return;
     this.isDead = true;
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('bee_die', { volume: 0.75 });
+    }
     this.isDashing = false;
-    if (this.scene.bird && !this.scene.bird.isDead) {
+    if (awardXP && this.scene.bird && !this.scene.bird.isDead) {
       this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
     }
     this.anims.stop();

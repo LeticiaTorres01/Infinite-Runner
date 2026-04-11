@@ -39,6 +39,9 @@ export default class BlueCoin extends Phaser.Physics.Arcade.Sprite {
   collect(bird) {
     if (this.isCollected) return;
     this.isCollected = true;
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('blue_red_coin', { volume: 0.65 });
+    }
     
     if (bird) {
         bird.collectShieldItem();

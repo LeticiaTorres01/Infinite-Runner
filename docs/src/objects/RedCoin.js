@@ -43,6 +43,9 @@ export default class RedCoin extends Phaser.Physics.Arcade.Sprite {
     collect(bird) {
         if (this.isCollected) return;
         this.isCollected = true;
+        if (this.scene && typeof this.scene.playSfx === 'function') {
+            this.scene.playSfx('blue_red_coin', { volume: 0.65 });
+        }
         
         // Adiciona o item de cura no inventário do passarinho
         bird.collectHealItem();

@@ -31,8 +31,8 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
         2: { row: 7, scale: 2, cd: 8000, dmg: 3, dur: 250 },
         3: { row: 6, scale: 3, cd: 7000, dmg: 3, dur: 280 },
         4: { row: 5, scale: 3, cd: 6000, dmg: 4, dur: 310 },
-        5: { row: 4, scale: 3, cd: 5500, dmg: 4, dur: 340 },
-        6: { row: 3, scale: 4, cd: 5000, dmg: 5, dur: 370 },
+        5: { row: 4, scale: 3, cd: 5500, dmg: 5, dur: 340 },
+        6: { row: 3, scale: 4, cd: 5000, dmg: 6, dur: 370 },
         7: { row: 2, scale: 4, cd: 4500, dmg: 7, dur: 400 },
         8: { row: 8, scale: 4, cd: 4000, dmg: 8, dur: 450 },
         9: { row: 9, scale: 4, cd: 3500, dmg: 9, dur: 500 },
@@ -58,14 +58,15 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.shields = 0; 
     this.storedShields = 0; // Novo: contador de escudos guardados
     this.storedHeals = 0; 
-    this.healKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+
+    // Bindings de controle — serão injetados via setControlBindings()
+    this.controlBindings = null;
 
     // HABILIDADE DE DASH/ATAQUE ESPECIAL
     this.canDash = false; // Ativado no Level 3
     this.isDashing = false;
     this.dashDamage = 1; // Começa com 1 no Level 3
     this.dashAnimationRow = 7; // Começa com a linha 7 do spritesheet 06.png
-    this.dashKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
     // ESCUDO VISUAL
     this.shieldSprite = scene.add.sprite(x, y, 'electric_shield');
@@ -75,7 +76,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
 
     // SISTEMA DE MUNIÇÃO
     this.ammo = 10;
-    this.maxAmmo = 50; // Limite máximo de coco
+    this.maxAmmo = 120; // Limite máximo de coco
     this.lastShootTime = 0;
     this.shootDelay = 500;
 
@@ -88,11 +89,10 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     // NOVO: Trava de controle para cinemáticas
     this.isControlLocked = false;
 
-    // Tecla para usar escudo
-    this.shieldKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-
     // DANO INICIAL
     this.damage = 1;
+
+    this.levelUpTextFX = null;
   }
 
   static preload(scene) {
@@ -180,6 +180,10 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     
     this.notifyHUD();
     this.scene.events.emit('updateStoredHeals', this.storedHeals);
+
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('healing', { volume: 0.85 });
+    }
   }
 
   useShield() {
@@ -192,6 +196,10 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     
     this.notifyHUD();
     this.scene.events.emit('updateStoredShields', this.storedShields);
+
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('shield', { volume: 0.9 });
+    }
   }
 
   activateShield() {
@@ -215,7 +223,7 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
   syncFromData(data) {
     if (!data) return;
 
-    this.level = data.level || this.level;
+    this.level = Math.min(data.level || this.level, 10);
     this.xp = data.xp || 0;
     this.score = data.score || 0;
     this.ammo = data.ammo || 0;
@@ -226,8 +234,8 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     this.shields = data.shields || 0;
 
     // Recalcula atributos dependentes do level
-    const xpTable = [0, 100, 150, 200, 350, 375, 375, 375, 375, 375, 375];
-    this.xpNextLevel = xpTable[this.level] || 99999;
+    const xpTable = [0, 100, 150, 200, 350, 375, 375, 375, 375, 375];
+    this.xpNextLevel = this.level >= 10 ? 1 : (xpTable[this.level] || 99999);
     this.speed = Math.min(this.baseSpeed + ((this.level - 1) * 30), 600);
 
     // Atualiza Aura e Dash
@@ -286,18 +294,66 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     return config ? config.dmg : 1;
   }
 
+  showLevelUpIndicator() {
+    if (!this.scene || !this.active) return;
+
+    if (this.levelUpTextFX && this.levelUpTextFX.active) {
+      this.levelUpTextFX.destroy();
+      this.levelUpTextFX = null;
+    }
+
+    const levelText = this.level >= 10 ? 'LEVEL MAX!' : `LEVEL ${this.level}!`;
+    const txt = this.scene.add.text(this.x, this.y - 95, levelText, {
+      fontSize: '32px',
+      fontFamily: 'KenneyRocket',
+      fill: '#ffe066',
+      stroke: '#000000',
+      strokeThickness: 6
+    }).setOrigin(0.5).setDepth(700);
+
+    this.levelUpTextFX = txt;
+
+    this.scene.tweens.add({
+      targets: txt,
+      y: this.y - 160,
+      alpha: 0,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      duration: 650,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        if (txt.active) txt.destroy();
+        if (this.levelUpTextFX === txt) this.levelUpTextFX = null;
+      }
+    });
+  }
+
   gainExperience(amountXP, amountScore) {
     if (this.isDead) return;
 
     this.score += amountScore;
+
+    if (this.level >= 10) {
+      this.level = 10;
+      this.xp = 0;
+      this.xpNextLevel = 1;
+      this.scene.events.emit('updateProgress', {
+        score: this.score,
+        xp: this.xp,
+        level: this.level,
+        xpNextLevel: this.xpNextLevel
+      });
+      return;
+    }
+
     this.xp += amountXP;
 
     if (this.xp >= this.xpNextLevel) {
-      this.level++;
+      this.level = Math.min(this.level + 1, 10);
       this.xp -= this.xpNextLevel;
       
       // NOVO: Tabela Fixa de XP. Preserva os rounds iniciais e torna o "Endgame" muito mais difícil.
-      const xpTable = [
+        const xpTable = [
           0,      // Level 0 (Não usado)
           100,    // Lvl 1 -> 2 (Garantido no Round 1)
           150,    // Lvl 2 -> 3 (Garantido no meio do Round 3)
@@ -307,11 +363,11 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
           375,   // Lvl 6 -> 7 (O teste final da Fase 1)
           375,   // Lvl 7 -> 8 (Só alcançável na Fase 2)
           375,   // Lvl 8 -> 9
-          375,   // Lvl 9 -> 10
-          375   // Lvl 10 (Max)
+          375    // Lvl 9 -> 10
       ];
       
-      this.xpNextLevel = xpTable[this.level] || 99999;
+        this.xpNextLevel = this.level >= 10 ? 1 : (xpTable[this.level] || 99999);
+        if (this.level >= 10) this.xp = 0;
 
       if (this.maxLives < 6) this.maxLives++;
       this.lives = this.maxLives;
@@ -340,6 +396,11 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
       this.scene.events.emit('updateMaxLives', this.maxLives);
       this.notifyHUD();
       this.scene.events.emit('levelUp', this.level);
+      this.showLevelUpIndicator();
+
+      if (this.scene && typeof this.scene.playSfx === 'function') {
+        this.scene.playSfx('level_up', { volume: 0.95 });
+      }
     }
 
     this.scene.events.emit('updateProgress', {
@@ -469,8 +530,37 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  /**
+   * Injeta bindings de controle configuráveis.
+   * @param {Object} bindings - { cursors, shoot, dash, shield, heal, pause }
+   */
+  setControlBindings(bindings) {
+    if (bindings && typeof bindings === 'object') {
+      this.controlBindings = bindings;
+    }
+  }
+
   update(cursors) {
     if (this.isDead) return;
+
+    // Use injected control bindings if available, otherwise fallback to cursors parameter
+    const controls = this.controlBindings ? this.controlBindings : { cursors };
+
+    const isJustDown = (keyOrKeys) => {
+      if (Array.isArray(keyOrKeys)) {
+        return keyOrKeys.some((key) => key && Phaser.Input.Keyboard.JustDown(key));
+      }
+
+      return keyOrKeys && Phaser.Input.Keyboard.JustDown(keyOrKeys);
+    };
+
+    const isDown = (keyOrKeys) => {
+      if (Array.isArray(keyOrKeys)) {
+        return keyOrKeys.some((key) => key && key.isDown);
+      }
+
+      return keyOrKeys && keyOrKeys.isDown;
+    };
 
     // NOVO: Trava os controles durante a transição do Boss
     if (this.isControlLocked) {
@@ -484,18 +574,21 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
         return; // Ignora o resto do código de movimentação e tiro!
     }
 
-    // Lógica para usar escudo
-    if (Phaser.Input.Keyboard.JustDown(this.shieldKey)) {
+    // Lógica para usar escudo (usa control bindings ou fallback)
+    const shieldKey = controls.shield;
+    if (isJustDown(shieldKey)) {
         this.useShield();
     }
 
-    // NOVO: Lógica para usar Cura
-    if (Phaser.Input.Keyboard.JustDown(this.healKey)) {
+    // NOVO: Lógica para usar Cura (usa control bindings ou fallback)
+    const healKey = controls.heal;
+    if (isJustDown(healKey)) {
         this.useHeal();
     }
 
-    // Lógica para usar Dash
-    if (Phaser.Input.Keyboard.JustDown(this.dashKey)) {
+    // Lógica para usar Dash (usa control bindings ou fallback)
+    const dashKey = controls.dash;
+    if (isJustDown(dashKey)) {
         this.startDash();
     }
 
@@ -510,21 +603,26 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
         this.shieldSprite.setPosition(this.x, this.y);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
+    // Tiro usa control bindings ou fallback
+    const shootKey = controls.shoot || (cursors && cursors.space);
+    if (isDown(shootKey)) {
       this.shootPoop();
     }
     
-    if (cursors.left.isDown) {
+    // Movimento usa control bindings cursors ou parâmetro cursors
+    const movementCursors = controls.cursors || cursors;
+    
+    if (movementCursors.left.isDown) {
       this.setVelocityX(-this.speed);
       this.setFlipX(true);
-    } else if (cursors.right.isDown) {
+    } else if (movementCursors.right.isDown) {
       this.setVelocityX(this.speed);
       this.setFlipX(false);
     }
 
-    if (cursors.up.isDown) {
+    if (movementCursors.up.isDown) {
       this.setVelocityY(-this.speed);
-    } else if (cursors.down.isDown) {
+    } else if (movementCursors.down.isDown) {
       this.setVelocityY(this.speed);
     }
   }
@@ -532,6 +630,10 @@ export default class Bird extends Phaser.Physics.Arcade.Sprite {
   startDash() {
     // Só usa se for level 2+, estiver pronto, não estiver morto ou pausado
     if (this.level < 2 || !this.isDashReady || this.isDashing || this.isDead || this.scene.isPaused || this.scene.isGameOver) return;
+
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('dash', { volume: 0.85 });
+    }
 
     this.isDashing = true;
     this.isInvincible = true; // Garante i-frames durante o dash

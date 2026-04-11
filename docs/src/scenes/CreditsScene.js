@@ -1,6 +1,8 @@
 /**
  * CreditsScene.js - Tela de Encerramento e Créditos
  */
+import { SettingsService } from '../services/SettingsService.js';
+
 export default class CreditsScene extends Phaser.Scene {
   constructor() {
     super({ key: 'CreditsScene' });
@@ -8,6 +10,17 @@ export default class CreditsScene extends Phaser.Scene {
     this.crawlContainer = null;
     this.scrollSpeed = 1.0;
     this.isFinished = false;
+    this.isExiting = false;
+  }
+
+  goToMainMenu() {
+    if (this.isExiting) return;
+    this.isExiting = true;
+
+    this.cameras.main.fadeOut(800, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start('InitialSceneD');
+    });
   }
 
   preload() {
@@ -30,6 +43,10 @@ export default class CreditsScene extends Phaser.Scene {
 
     // Efeito de fade in ao entrar nos créditos
     this.cameras.main.fadeIn(2000, 0, 0, 0);
+
+    // Aplica volume master das configurações ao entrar na cena
+    const masterVolume = SettingsService.getMasterVolume() / 100;
+    this.sound.volume = masterVolume;
 
     // Reutilizando o fundo parallax (em tom roxo para combinar com a fase 2)
     const addLayer = (key, speed) => {
@@ -63,8 +80,8 @@ export default class CreditsScene extends Phaser.Scene {
       "Roteiro e Narrativa:\nLetícia M. Torres\n\n" +
       "Desenvolvimento:\nGiovanni L.O.S. & Gemini\n\n\n" +
       "--- ASSETS ---\n\n" +
-      "Arte e Sprites:\nVários Autores (OpenGameArt)\n\n" +
-      "SoundTracks:\nVários Autores\n\n\n" +
+      "Arte e Sprites:\nVários Autores (itch.io)\n\n" +
+      "SoundTracks\FX:\nGiovanni L.O.S. & Vários Autores\n\n\n" +
       "A aventura de Tori continua...";
 
     this.crawlContainer = this.add.container(w / 2, h + 100);
@@ -87,10 +104,10 @@ export default class CreditsScene extends Phaser.Scene {
 
     this.crawlContainer.add([title, body]);
 
-    // Tecla para reiniciar o jogo
-    this.key1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
+    // Tecla para voltar ao menu principal
+    this.keyEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     
-    this.add.text(w / 2, h - 30, "Pressione '1' para voltar ao menu", {
+    this.add.text(w / 2, h - 30, "Pressione 'esc' para voltar ao menu", {
         fontFamily: 'KenneyPixel',
         fontSize: '24px',
         fill: '#ffffff'
@@ -98,6 +115,11 @@ export default class CreditsScene extends Phaser.Scene {
   }
 
   update() {
+    if (this.keyEsc && Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
+      this.goToMainMenu();
+      return;
+    }
+
     this.bgLayers.forEach(layer => {
       layer.sprite.tilePositionX += layer.speed;
     });
@@ -109,10 +131,7 @@ export default class CreditsScene extends Phaser.Scene {
       if (this.crawlContainer.y < -1200) {
         this.isFinished = true;
         this.time.delayedCall(3000, () => {
-            this.cameras.main.fadeOut(2000, 0, 0, 0);
-            this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-                this.scene.start('StoryScene');
-            });
+            this.goToMainMenu();
         });
       }
     }

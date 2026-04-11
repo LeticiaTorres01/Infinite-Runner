@@ -20,7 +20,7 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
       this.body.setCircle(10, 5, 11); 
     }
 
-    this.hp = 8;
+    this.hp = 19;
     this.xpValue = 50;
     this.scoreValue = 150;
     this.isDead = false;
@@ -55,7 +55,7 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
 
   upgrade() {
     this.isUpgraded = true;
-    this.hp = 12; 
+    this.hp = 26; 
     
     // Aura Roxa Fininha (Padrão de evolução)
     this.glowFX = this.preFX.addGlow(0x9900ff, 1, 0, false, 0.1, 10);
@@ -288,7 +288,7 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
       let jumpPowerY = -1450;
       let jumpPowerX = jumpDir * 350; 
       
-      if (this.jumpCount >= 6 && this.isUpgraded) {
+      if (this.jumpCount >= 16 && this.isUpgraded) {
         this.isSpecialJumping = true;
         jumpPowerY = -2200; 
         jumpPowerX = jumpDir * 450; 
@@ -351,12 +351,11 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
   dieOnLanding() {
     if (this.isDead) return;
     this.isDead = true;
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('orange_die', { volume: 0.75 });
+    }
     this.isSpecialJumping = false;
     
-    if (this.scene.bird && !this.scene.bird.isDead) {
-        this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
-    }
-
     this.play('orange_death_anim');
     
     if (this.body) {
@@ -370,11 +369,14 @@ export default class Orange extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  die() {
+  die(awardXP = true) {
     if (this.isDead) return;
     this.isDead = true;
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('orange_die', { volume: 0.75 });
+    }
 
-    if (this.scene.bird && !this.scene.bird.isDead) {
+    if (awardXP && this.scene.bird && !this.scene.bird.isDead) {
         this.scene.bird.gainExperience(this.xpValue, this.scoreValue);
     }
 

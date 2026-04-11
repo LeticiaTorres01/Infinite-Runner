@@ -80,6 +80,10 @@ export default class Poop extends Phaser.Physics.Arcade.Sprite {
   explode() {
     if (this.isExploding) return;
     this.isExploding = true;
+
+        if (this.scene && typeof this.scene.playSfx === 'function') {
+            this.scene.playSfx('explosion', { volume: 0.85 });
+        }
     
     // NOVO: Conjunto para rastrear inimigos atingidos por ESTA explosão (para dar dano apenas 1 vez por alvo)
     this.hitEnemies = new Set();
@@ -91,7 +95,18 @@ export default class Poop extends Phaser.Physics.Arcade.Sprite {
     }
 
     // 1. Inicia a animação (troca para frame de 64x64)
-    this.play('poop_explosion_row_' + this.animationRow);
+    const explosionAnimKey = 'poop_explosion_row_' + this.animationRow;
+    if (!this.scene.anims.exists(explosionAnimKey)) {
+        Poop.createAnimations(this.scene);
+    }
+
+    if (this.scene.anims.exists(explosionAnimKey)) {
+        this.play(explosionAnimKey);
+    } else {
+        // Fallback defensivo: se a animacao nao existir por algum motivo, evita ficar travado em tela.
+        this.destroy();
+        return;
+    }
 
     // 2. Aplica a escala visual da Tabela poopConfig
     this.setScale(this.expScale);

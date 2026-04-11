@@ -6,8 +6,8 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
 
         this.setDepth(100);
         this.setScale(7); 
-        this.hp = 400;
-        this.maxHp = 400;
+        this.hp = 450;
+        this.maxHp = 450;
         this.isDead = false;
         this.isInvulnerable = true;
         this.walkState = null;
@@ -19,6 +19,7 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
         this.isSideSwapAttackRunning = false;
         this.nextAttackTimer = null;
         this.lastScriptAttack = null;
+        this.lowHpGlowActive = false;
 
         this.HITBOX_BASELINE = 48;
         this.WALK_SPEED = 250;
@@ -27,6 +28,9 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
 
         // Origin fixo ancorado nos pes para manter a base estavel.
         this.setOrigin(0.5, 1);
+
+        this.lowHpGlowFX = this.preFX.addGlow(0x9900ff, 8, 2, false, 0.1, 10);
+        this.lowHpGlowFX.active = false;
 
         if (this.body) {
             // GRAVIDADE LIGADA DESDE O INÍCIO!
@@ -355,6 +359,9 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
     }
 
     performSpinAttack() {
+        if (this.scene && typeof this.scene.playSfx === 'function') {
+            this.scene.playSfx('boss_swing_attack', { volume: 0.8 });
+        }
         this.faceTarget(this.scene.bird ? this.scene.bird.x : this.x);
         const dir = this.flipX ? -1 : 1;
 
@@ -425,6 +432,9 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
     }
 
     performTeleportStrike() {
+        if (this.scene && typeof this.scene.playSfx === 'function') {
+            this.scene.playSfx('boss_teleport_attack', { volume: 0.8 });
+        }
         this.playAnimation('boss_vanish');
         
         this.scene.time.delayedCall(500, () => {
@@ -570,6 +580,15 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
         if (this.isInvulnerable || this.isDead) return;
         
         this.hp -= amount;
+
+        if (!this.lowHpGlowActive && this.hp <= this.maxHp * 0.3) {
+            this.lowHpGlowActive = true;
+            if (this.lowHpGlowFX) {
+                this.lowHpGlowFX.active = true;
+                this.lowHpGlowFX.color = 0xbf00ff;
+                this.lowHpGlowFX.outerStrength = 12;
+            }
+        }
         
         this.setTint(0xff0000);
         this.scene.time.delayedCall(100, () => this.clearTint());
@@ -580,23 +599,75 @@ export default class SwordBoss extends Phaser.Physics.Arcade.Sprite {
     }
 
     die() {
+        if (this.isDead) return;
         this.isDead = true;
+        this.isInvulnerable = true;
+        if (this.scene && typeof this.scene.playSfx === 'function') {
+            this.scene.playSfx('boss_die', { volume: 0.85 });
+        }
+
         if (this.body) this.body.enable = false;
+
         if (this.nextAttackTimer) {
             this.nextAttackTimer.remove(false);
             this.nextAttackTimer = null;
         }
+
+        this.scene.tweens.killTweensOf(this);
+        this.setHealthBarVisible(false);
+
         if (this.scene && this.scene.events) {
             this.scene.events.emit('bossDefeated', this);
         }
-        
-        this.scene.tweens.killTweensOf(this); 
 
-        this.setHealthBarVisible(false);
-        this.playAnimation('boss_vanish');
-        
-        this.once('animationcomplete', () => {
+        this.anims.play({ key: 'boss_vanish', repeat: -1 });
+
+        let isRed = false;
+        const flashTimer = this.scene.time.addEvent({
+            delay: 100,
+            loop: true,
+            callback: () => {
+                isRed = !isRed;
+                if (isRed) this.setTintFill(0xff0000);
+                else this.clearTint();
+            }
+        });
+
+        this.scene.time.delayedCall(2500, () => {
+            flashTimer.remove(false);
+            this.clearTint();
+            this.setVisible(false);
+
+            for (let i = 0; i < 30; i++) {
+                const clone = this.scene.add.sprite(this.x, this.y, 'boss_sword');
+                clone.play('boss_dash');
+                clone.setTint(0xff0000);
+                clone.setAlpha(0.8);
+                clone.setScale(this.scaleX, this.scaleY);
+                clone.setDepth(this.depth);
+
+                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                const distance = Phaser.Math.Between(1500, 2500);
+                const targetX = this.x + Math.cos(angle) * distance;
+                const targetY = this.y + Math.sin(angle) * distance;
+
+                clone.setFlipX(Math.cos(angle) < 0);
+
+                this.scene.tweens.add({
+                    targets: clone,
+                    x: targetX,
+                    y: targetY,
+                    alpha: 0,
+                    duration: Phaser.Math.Between(1000, 1500),
+                    ease: 'Power2',
+                    onComplete: () => clone.destroy()
+                });
+            }
+
             this.scene.time.delayedCall(2000, () => {
+                if (this.scene && this.scene.events) {
+                    this.scene.events.emit('bossDeathSequenceComplete', this);
+                }
                 this.destroy();
             });
         });

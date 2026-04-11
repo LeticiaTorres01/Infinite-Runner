@@ -11,6 +11,9 @@ import GoldCoin from '../objects/GoldCoin.js';
 import Fruit from '../objects/Fruit.js';
 import MagicProjectile from '../objects/MagicProjectile.js';
 import SwordBoss from '../objects/SwordBoss.js';
+import SaveService from '../services/SaveService.js';
+import { SettingsService } from '../services/SettingsService.js';
+import { InputProfileService } from '../services/InputProfileService.js';
 
 export default class Phase1Scene extends Phaser.Scene {
   constructor() {
@@ -25,6 +28,8 @@ export default class Phase1Scene extends Phaser.Scene {
     this.goldCoins = null;
     this.fruits = null;
     this.poops = null;
+    this.fairies = null;
+    this.enemyProjectiles = null;
     this.isGameStarted = false;
     this.isPaused = false;
     this.isGameOver = false;
@@ -32,6 +37,12 @@ export default class Phase1Scene extends Phaser.Scene {
     this.bgSpeedFactor = 1.0;
     this.hearts = [];
     this.shieldIcons = [];
+    this.onFairyShoot = null;
+    this.continueData = null;
+    this.saveSlotId = null;
+    this.lowHealthBorder = null;
+    this.lowHealthTween = null;
+    this.sfxMasterVolume = 1;
 
     // --- ROUND MANAGER STATE ---
     this.currentRound = 1;
@@ -40,34 +51,73 @@ export default class Phase1Scene extends Phaser.Scene {
     this.isRoundTransitioning = false; 
 
     this.roundRecipes = [
-        // Round 1: Continua igual, perfeito para dar exatos 100 XP e levar ao Lvl 2.
-        { round: 1, flickers: 10, mushrooms: 0, bees: 0, oranges: 0, coins: 2, spawnDelay: 8000 },
+        // Round 1: Introducao rapida e clara, com ondas curtas e sem enrolacao.
+        {
+            round: 1,
+            scripted: true,
+            sequence: [
+                { type: 'flicker', delay: 1800 },
+                { type: 'coin', delay: 0 },
+                { type: 'flicker', delay: 1200 },
+                { type: 'coin', delay: 0 },
+                { type: 'flicker', delay: 1200 },
+                { type: 'coin', delay: 0 },
+                { type: 'flicker', delay: 1200 },
+                { type: 'coin', delay: 0 },
+                { type: 'wait_clear' },
+
+                { type: 'mushroom', delay: 1200 },
+                { type: 'coin', delay: 0 },
+                { type: 'mushroom', delay: 1200 },
+                { type: 'wait_clear' },
+
+                { type: 'flicker', delay: 700 },
+                { type: 'coin', delay: 0 },
+                { type: 'mushroom', delay: 1200 },
+                { type: 'coin', delay: 0 },
+                { type: 'mushroom', delay: 1200 },
+                { type: 'flicker', delay: 700 },
+                { type: 'coin', delay: 0 },
+                { type: 'wait_clear' }
+            ]
+        },
         
         // Round 2: NOVO MODELO SCRIPTADO (Comandos em ordem cronológica)
         { 
             round: 2, 
             scripted: true, 
             sequence: [
-                // 1. Apresenta que ele está mais forte (3 Flickers normais)
-                { type: 'flicker', delay: 2000 },
-                { type: 'flicker', delay: 2000 },
-                { type: 'flicker', delay: 2000 },
+                // 1. Apresenta que ele está mais forte (4 Flickers normais)
+                { type: 'flicker', delay: 1000 },
+                { type: 'mushroom', delay: 0 },
+                { type: 'mushroom', delay: 1800 },
+                { type: 'coin', delay: 0 },
+                { type: 'flicker', delay: 0 },
+                { type: 'mushroom', delay: 1800 },
+                { type: 'flicker', delay: 0 },
+                { type: 'coin', delay: 0 },
+                { type: 'flicker', delay: 1400 },
                 
                 // 2. Espera a tela ficar 100% limpa
                 { type: 'wait_clear' },
+                { type: 'blue_coin', delay: 1800 },
                 
-                // 3. Nasce 3 cogumelos com LONGOS intervalos (5 segundos cada)
-                { type: 'mushroom', delay: 5000 },
-                { type: 'mushroom', delay: 5000 },
-                { type: 'mushroom', delay: 5000 },
+                // 3. Nasce 3 cogumelos com ritmo mais rapido
+                { type: 'coin', delay: 0 },
+                { type: 'mushroom', delay: 2200 },
+                { type: 'flicker', delay: 0 },
+                { type: 'mushroom', delay: 1800 },
+                { type: 'flicker', delay: 0 },
+                { type: 'coin', delay: 0 },
+                { type: 'coin', delay: 0 },
+                { type: 'mushroom', delay: 2200 },
                 
                 // 4. Espera a tela ficar 100% limpa (seja por morte ou por saírem da tela)
                 { type: 'wait_clear' },
                 
-                // 5. Apresenta as abelhas (3 segundos de intervalo)
-                { type: 'bee', delay: 3000 },
-                { type: 'bee', delay: 3000 },
-                { type: 'bee', delay: 3000 },
+                // 5. Apresenta as abelhas (entrada mais enxuta)
+                { type: 'bee', delay: 1400 },
+                { type: 'bee', delay: 1800 },
                 
                 // 6. Fim do round (Garante que só acaba quando a tela limpar)
                 { type: 'wait_clear' }
@@ -78,33 +128,48 @@ export default class Phase1Scene extends Phaser.Scene {
             round: 3, 
             scripted: true, 
             sequence: [
-                // 1. 5 Flickers para upar para o Lvl 3 e curar
+                // 1. 4 Flickers para upar para o Lvl 3 e curar, com menos espera
                 { type: 'flicker', delay: 1000 },
+                { type: 'bee', delay: 0 },
                 { type: 'flicker', delay: 1000 },
+                { type: 'bee', delay: 0 },
                 { type: 'flicker', delay: 1000 },
-                { type: 'flicker', delay: 1000 },
+                { type: 'bee', delay: 0 },
                 { type: 'flicker', delay: 1000 },
                 
                 { type: 'wait_clear' },
                 
-                // 2. Apresenta a Blue Coin (Escudo) isolada
-                { type: 'blue_coin', delay: 3000 },
+                { type: 'blue_coin', delay: 1800 },
                 
-                // 3. As 3 ondas conjuntas a cada 15 segundos + Moedas Douradas
+                // 3. Ondas conjuntas mais curtas + Moedas Douradas
                 // ONDA 1
-                { type: 'mushroom', delay: 0 },
+                { type: 'mushroom', delay: 500 },
+                { type: 'bee', delay: 0 },
+                { type: 'flicker', delay: 1000 },
                 { type: 'bee', delay: 0 },
                 { type: 'gold_coin', delay: 500 },
-                { type: 'gold_coin', delay: 14500 }, // Cooldown de quase 15s para a próxima onda
+                { type: 'bee', delay: 0 },
+                { type: 'mushroom', delay: 500 },
+                { type: 'flicker', delay: 1000 },
+                { type: 'gold_coin', delay: 9000 },
                 
                 // ONDA 2
                 { type: 'mushroom', delay: 0 },
                 { type: 'bee', delay: 0 },
+                { type: 'mushroom', delay: 500 },
+                { type: 'bee', delay: 0 },
+                { type: 'mushroom', delay: 500 },
+                { type: 'bee', delay: 0 },
+                { type: 'mushroom', delay: 500 },
                 { type: 'gold_coin', delay: 500 },
-                { type: 'gold_coin', delay: 14500 },
+                { type: 'gold_coin', delay: 9000 },
                 
+                { type: 'red_coin', delay: 1000 }, // Moeda de cura!
                 // ONDA 3
                 { type: 'mushroom', delay: 0 },
+                { type: 'bee', delay: 0 },
+                { type: 'bee', delay: 0 },
+                { type: 'bee', delay: 0 },
                 { type: 'bee', delay: 0 },
                 { type: 'gold_coin', delay: 500 },
                 { type: 'gold_coin', delay: 0 }, // Sendo a última, não precisa do longo delay
@@ -117,6 +182,7 @@ export default class Phase1Scene extends Phaser.Scene {
             scripted: true, 
             sequence: [
                 // 1. A Barreira (Todos com delay 0 nascem no mesmo instante, mesma posição X, posições Y diferentes)
+                { type: 'red_coin', delay: 1000 }, // Moeda de cura!
                 { type: 'flicker', x: 2100, y: 50, delay: 0 },
                 { type: 'flicker', x: 2100, y: 150, delay: 0 },
                 { type: 'flicker', x: 2100, y: 250, delay: 0 },
@@ -132,14 +198,22 @@ export default class Phase1Scene extends Phaser.Scene {
                 
                 // 2. Apresenta o novo perigo: O Cogumelo Evoluído (sozinho para ele entender que é tanque)
                 { type: 'mushroom', upgraded: true, delay: 4000 },
+                { type: 'bee', delay: 0 },
+                { type: 'bee', delay: 0 },
                 { type: 'mushroom', upgraded: true, delay: 4000 },
                 
                 { type: 'wait_clear' },
                 
                 // 3. A Recompensa e o teste de sinergia
                 { type: 'flicker', delay: 1000 },
+                { type: 'mushroom', upgraded: true, delay: 4000 },
+                { type: 'bee', delay: 0 },
+                { type: 'bee', delay: 0 },
                 { type: 'flicker', delay: 1000 },
+                { type: 'mushroom', upgraded: true, delay: 4000 },
                 { type: 'red_coin', delay: 1000 }, // Moeda de cura!
+                { type: 'bee', delay: 0 },
+                { type: 'bee', delay: 0 },
                 { type: 'bee', delay: 0 },
                 { type: 'mushroom', upgraded: true, delay: 0 },
                 
@@ -150,94 +224,177 @@ export default class Phase1Scene extends Phaser.Scene {
             round: 5, 
             scripted: true, 
             sequence: [
-                // 1. Demonstração de Força: 2 Flickers evoluídos bem espaçados
-                // O jogador percebe que eles demoram a morrer e são rápidos
-                { type: 'flicker', upgraded: true, y: 300, delay: 2000 },
-                { type: 'flicker', upgraded: true, y: 700, delay: 3500 },
+                // 1. Primeira Parede Horizontal: Flickers no meio da tela, obrigando o desvio
+                { type: 'flicker', upgraded: true, x: 1900, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2000, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2100, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2200, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 1900, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2000, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2100, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2200, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2300, y: 500, delay: 3500 },
                 
                 { type: 'wait_clear' },
                 
-                // 2. Os "Baits" de Chão
-                // Nasce um cogumelo normal, e logo atrás dele, perigosamente perto do chão (y: 850), uma moeda.
-                { type: 'mushroom', delay: 600 },
-                { type: 'gold_coin', y: 850, delay: 4000 },
-                
-                // Repete a isca para ver se ele cai na armadilha de novo
-                { type: 'mushroom', delay: 600 },
-                { type: 'gold_coin', y: 850, delay: 4000 },
+                // 2. Cogumelos para forçar o jogador p/ cima ou p/ baixo (verticalmente)
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'mushroom', delay: 800 },
+                { type: 'gold_coin', delay: 0 },
+                { type: 'flicker', upgraded: true, delay: 1000 },
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'gold_coin', delay: 0 },
+                { type: 'mushroom', delay: 800 },
+                { type: 'flicker', upgraded: true, delay: 1000 },
+                { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'gold_coin', delay: 0 },
+                { type: 'flicker', upgraded: true, delay: 1000 },
                 
                 { type: 'wait_clear' },
                 
-                // 3. Punição Aérea e Recompensa Final
-                // O jogador que ficou voando alto para fugir dos cogumelos vai dar de cara com abelhas
-                { type: 'bee', delay: 1000 },
-                { type: 'bee', delay: 1500 },
-                { type: 'gold_coin', delay: 0 }, // Moeda no meio da tela como recompensa de fim de round
+                // 3. Recompensa com aceleração p/ próxima onda
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
                 
                 { type: 'wait_clear' }
             ]
         },
-        // ROUND 6: Foco em acrobacias aéreas e introdução da Bee Evoluída (Combo de Dashes)
+        // ROUND 6: Foco em acrobacias aéreas e Parede Horizontal em formação diagonal
         { 
             round: 6, 
             scripted: true, 
             sequence: [
-                // 1. Apresentação: Uma Bee Evoluída sozinha para o jogador aprender o tempo de esquiva do combo
-                { type: 'bee', upgraded: true, delay: 3500 },
+                // 1. Parede Horizontal Baixa: Força o jogador a subir rapidamente
+                { type: 'flicker', upgraded: true, x: 1850, y: 850, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 1950, y: 850, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2050, y: 850, delay: 0 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'flicker', upgraded: true, x: 2150, y: 850, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2250, y: 850, delay: 3000 },
                 { type: 'wait_clear' },
                 
-                // 2. O "Zigue-Zague": Flickers em alturas diferentes forçando voo sinuoso + Bee dando suporte
-                { type: 'flicker', y: 200, delay: 500 },
-                { type: 'flicker', y: 550, delay: 500 },
-                { type: 'flicker', y: 850, delay: 1500 },
-                { type: 'bee', upgraded: true, delay: 2500 },
+                // 2. Punição Aérea enquanto ele está em cima: Abelhas rápidas
+                { type: 'bee', upgraded: true, delay: 500 },
+                { type: 'bee', upgraded: true, delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'flicker', upgraded: true, x: 1900, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2000, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2100, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2200, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 1900, y: 500, delay: 0 },
+                { type: 'flicker', x: 2100, y: 50, delay: 0 },
+                { type: 'flicker', x: 2100, y: 150, delay: 0 },
+                { type: 'flicker', x: 2100, y: 250, delay: 0 },
+                { type: 'flicker', x: 2100, y: 350, delay: 0 },
+                { type: 'flicker', x: 2100, y: 450, delay: 0 },
+                { type: 'flicker', x: 2100, y: 550, delay: 0 },
+                { type: 'flicker', x: 2100, y: 650, delay: 0 },
+                { type: 'flicker', x: 2100, y: 750, delay: 0 },
+                { type: 'flicker', x: 2100, y: 850, delay: 0 },
+                { type: 'flicker', x: 2100, y: 950, delay: 0 }, // O último dá o tempo de espera
+                { type: 'flicker', upgraded: true, x: 2000, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2100, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2200, y: 500, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2300, y: 500, delay: 3500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', delay: 1500 },
                 { type: 'wait_clear' },
 
-                // 3. Pressão Aérea: Tudo voando ao mesmo tempo
-                { type: 'flicker', upgraded: true, y: 300, delay: 0 },
-                { type: 'flicker', y: 700, delay: 1000 },
-                { type: 'bee', upgraded: true, delay: 1000 },
-                { type: 'bee', delay: 2000 },
+                // 3. Parede Horizontal Alta: Força o jogador a descer (problema: laranja embaixo)
+                { type: 'orange', delay: 0 },
+                { type: 'flicker', upgraded: true, x: 1900, y: 200, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2000, y: 200, delay: 0 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'flicker', upgraded: true, x: 2100, y: 200, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2200, y: 200, delay: 0 },
+                { type: 'flicker', upgraded: true, x: 2300, y: 200, delay: 2000 },
                 { type: 'wait_clear' },
                 
-                // 4. Preparação para a tempestade: Dá um escudo para ajudar no R7
+                // 4. Recompensa após sobreviver às duas paredes
                 { type: 'blue_coin', delay: 500 },
                 { type: 'gold_coin', y: 300, delay: 500 },
-                { type: 'gold_coin', y: 700, delay: 0 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'bee', upgraded: true, delay: 1500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'gold_coin', y: 700, delay: 500 },
+                { type: 'gold_coin', y: 500, delay: 0 },
                 { type: 'wait_clear' }
             ]
         },
 
-        // ROUND 7: A Tempestade. Pressão altíssima de todos os lados.
+        // ROUND 7: Menos parede, mais combate real + estreia da Fairy normal.
         { 
             round: 7, 
             scripted: true, 
             sequence: [
-                // 1. Entrada Brusca: Tanque no chão e enxame no ar
-                { type: 'mushroom', upgraded: true, delay: 0 },
-                { type: 'bee', delay: 500 },
-                { type: 'bee', delay: 500 },
-                { type: 'bee', upgraded: true, delay: 3000 },
+            // 1. Parede curta no meio + pressão de chão
+            { type: 'flicker', x: 1950, y: 500, delay: 0 },
+            { type: 'flicker', x: 2050, y: 500, delay: 0 },
+            { type: 'flicker', x: 2150, y: 500, delay: 0 },
+            { type: 'flicker', x: 2250, y: 500, delay: 400 },
+            { type: 'mushroom', delay: 500 },
+            { type: 'orange', delay: 1000 },
                 { type: 'wait_clear' },
 
-                // 2. O Caos (Mix de inimigos rápidos e fortes forçando uso de recursos)
-                { type: 'flicker', upgraded: true, y: 200, delay: 800 },
-                { type: 'mushroom', delay: 800 },
-                { type: 'flicker', upgraded: true, y: 700, delay: 800 },
-                { type: 'bee', upgraded: true, delay: 800 },
-                { type: 'mushroom', upgraded: true, delay: 3000 },
+            // 2. Combate misto com Fairy normal dando suporte de tiro
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'bee', delay: 600 },
+            { type: 'bee', delay: 600 },
+            { type: 'mushroom', delay: 500 },
+            { type: 'orange', delay: 900 },
                 { type: 'wait_clear' },
 
-                // 3. O Clímax da Tempestade: Parede dupla (Aérea e Terrestre)
-                { type: 'flicker', x: 2100, y: 200, delay: 0 },
-                { type: 'flicker', x: 2100, y: 400, delay: 0 },
-                { type: 'flicker', x: 2100, y: 600, delay: 0 },
-                { type: 'mushroom', upgraded: true, delay: 0 }, // Força o Dash ou o jogador toma hit no chão
-                { type: 'flicker', x: 2100, y: 800, delay: 4000 },
+            // 3. Fechamento agressivo com parede curta alta e enxame
+            { type: 'flicker', x: 1950, y: 250, delay: 0 },
+            { type: 'flicker', x: 2050, y: 250, delay: 0 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'flicker', x: 2150, y: 250, delay: 0 },
+            { type: 'flicker', x: 2250, y: 250, delay: 300 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'bee', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+            { type: 'bee', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'mushroom', delay: 800 },
                 { type: 'wait_clear' },
 
-                // 4. Bonança: Recompensa massiva para quem sobreviveu (Cura e pontos)
-                { type: 'red_coin', delay: 800 }, // Cura a vida que com certeza ele perdeu
+            // 4. Recompensa
+                { type: 'red_coin', delay: 800 },
+                { type: 'blue_coin', delay: 500 },
                 { type: 'gold_coin', y: 200, delay: 500 },
                 { type: 'gold_coin', y: 500, delay: 500 },
                 { type: 'gold_coin', y: 800, delay: 0 },
@@ -245,105 +402,223 @@ export default class Phase1Scene extends Phaser.Scene {
             ]
         },
 
-        // ROUND 8: Labirintos e a Introdução das Laranjas (Pressão de velocidade no chão)
+        // ROUND 8: Menos labirinto, mais mistura constante com Fairy normal.
         { 
             round: 8, 
             scripted: true, 
             sequence: [
-                // 1. Apresenta o Orange junto com uma parede simples de Flickers
-                { type: 'flicker', upgraded: true, x: 2100, y: 300, delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2100, y: 600, delay: 1500 },
-                { type: 'orange', delay: 3000 }, // A Laranja vem rasgando pelo chão
+            // 1. Parede baixa curta com laranja e bee
+            { type: 'flicker', x: 1950, y: 760, delay: 0 },
+            { type: 'flicker', x: 2050, y: 760, delay: 0 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'flicker', x: 2150, y: 760, delay: 300 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'orange', delay: 500 },
+            { type: 'bee', delay: 900 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
                 { type: 'wait_clear' },
 
-                // 2. O "V" da Morte + Laranjas
-                { type: 'flicker', upgraded: true, x: 2000, y: 100, delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2150, y: 250, delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2300, y: 400, delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2000, y: 900, delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2150, y: 750, delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2300, y: 600, delay: 1000 },
-                { type: 'orange', delay: 1000 }, // Força o Tori a subir para o meio do "V"
-                { type: 'blue_coin', delay: 3000 },
+            // 2. Fairy + pressão cruzada de ar/chão
+            { type: 'fairy', x: 2200, y: 190, delay: 300 },
+            { type: 'bee', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'mushroom', delay: 500 },
+            { type: 'orange', delay: 700 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'bee', delay: 700 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
                 { type: 'wait_clear' },
 
-                // 3. Recompensa rápida
-                { type: 'red_coin', delay: 0 },
-                { type: 'gold_coin', y: 300, delay: 0 },
-                { type: 'gold_coin', y: 600, delay: 0 },
+            // 3. Onda cheia sem parede longa
+            { type: 'mushroom', delay: 0 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'bee', delay: 400 },
+            { type: 'orange', delay: 600 },
+            { type: 'flicker', y: 320, delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'flicker', y: 640, delay: 500 },
+            { type: 'bee', delay: 700 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+                { type: 'wait_clear' },
+
+                // 4. Recompensa após as 3 fileiras
+                { type: 'blue_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'gold_coin', y: 200, delay: 0 },
+                { type: 'gold_coin', y: 500, delay: 0 },
+                { type: 'gold_coin', y: 800, delay: 0 },
                 { type: 'wait_clear' }
             ]
         },
 
-        // ROUND 9: O Chão é Lava, O Céu é Hostil (Cogumelos + Oranges em sinergia)
+        // ROUND 9: Combate pesado com apenas paredes curtas de controle.
         { 
             round: 9, 
             scripted: true, 
             sequence: [
-                // 1. Horda Terrestre Massiva: Obriga o jogador a ir para o alto
-                { type: 'mushroom', upgraded: true, delay: 500 },
-                { type: 'orange', delay: 500 },
-                { type: 'mushroom', upgraded: true, delay: 500 },
-                { type: 'orange', delay: 2000 },
-                // 2. Punição Aérea (Enquanto ele foge do chão, as abelhas atacam)
-                { type: 'bee', upgraded: true, delay: 800 },
-                { type: 'bee', upgraded: true, delay: 4000 },
+            // 1. Abertura agressiva de chão + ar
+            { type: 'mushroom', delay: 0 },
+            { type: 'orange', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'bee', delay: 500 },
+            { type: 'bee', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'flicker', y: 280, delay: 700 },
                 { type: 'wait_clear' },
 
-                // 3. Chuva de Inimigos Mista
+            // 2. Parede média curta + Fairy normal
+            { type: 'flicker', x: 2000, y: 500, delay: 0 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'flicker', x: 2100, y: 500, delay: 0 },
+            { type: 'flicker', x: 2200, y: 500, delay: 300 },
+            { type: 'fairy', x: 2200, y: 220, delay: 600 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'orange', delay: 800 },
+            { type: 'mushroom', delay: 600 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+                { type: 'wait_clear' },
+
+            // 3. Pico de combate sem parede
+            { type: 'bee', delay: 300 },
+            { type: 'bee', delay: 300 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'mushroom', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+            { type: 'orange', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'flicker', y: 700, delay: 600 },
+            { type: 'bee', delay: 700 },
+                { type: 'wait_clear' },
+
+                // 4. Recompensa Massiva (Sobreviver a tudo isso merece generosidade)
                 { type: 'blue_coin', delay: 500 },
-                { type: 'mushroom', delay: 0 },
-                { type: 'orange', delay: 0 },
-                { type: 'bee', upgraded: true, delay: 0 },
-                { type: 'mushroom', upgraded: true, delay: 1000 },
-                { type: 'orange', delay: 1000 },
-                { type: 'bee', upgraded: true, delay: 3000 },
-                { type: 'flicker', upgraded: true, y: 500, delay: 3000 }, // Flicker rasgando o meio do mapa
+                { type: 'red_coin', delay: 500 },
+                { type: 'gold_coin', y: 200, delay: 500 },
+                { type: 'gold_coin', y: 500, delay: 500 },
+                { type: 'gold_coin', y: 800, delay: 0 },
                 { type: 'wait_clear' }
             ]
         },
 
-        // ROUND 10: O Clímax Final da Fase 1 (Tudo ao mesmo tempo)
+        // ROUND 10: Climax com combate dominante e paredes curtas de decisão.
         { 
             round: 10, 
             scripted: true, 
             sequence: [
-                // 1. Parede Falsa (Parece que vai dar para passar, mas as Oranges fecham embaixo)
-                { type: 'flicker', upgraded: true, x: 2100, y: 150, delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2100, y: 400, delay: 0 },
-                { type: 'orange', delay: 500 },
-                { type: 'orange', delay: 2000 },
-                { type: 'bee', upgraded: true, delay: 2000 },
+            // TESTE 1: Controle inicial com parede curta
+            { type: 'flicker', x: 1950, y: 250, delay: 0 },
+            { type: 'flicker', x: 2050, y: 250, delay: 0 },
+            { type: 'flicker', x: 2150, y: 250, delay: 300 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+            { type: 'orange', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'orange', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'orange', delay: 500 },
+            { type: 'mushroom', delay: 700 },
+            { type: 'bee', delay: 700 },
                 { type: 'wait_clear' },
 
-                // 2. A Guarda Real (Cogumelos e Abelhas Upgrades lutando em pares)
-                { type: 'mushroom', upgraded: true, delay: 0 },
-                { type: 'bee', upgraded: true, delay: 1000 },
-                { type: 'mushroom', upgraded: true, delay: 0 },
-                { type: 'bee', upgraded: true, delay: 2000 },
+            // TESTE 2: Fairy normal com enxame e chão agressivo
+            { type: 'fairy', x: 2200, y: 180, delay: 400 },
+            { type: 'bee', delay: 400 },
+            { type: 'bee', delay: 400 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+            { type: 'orange', delay: 500 },
+            { type: 'orange', delay: 500 },
+            { type: 'fairy', x: 2250, y: 260, delay: 600 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'orange', delay: 500 },
+            { type: 'mushroom', delay: 700 },
+            { type: 'flicker', y: 500, delay: 500 },
+            { type: 'flicker', y: 620, delay: 500 },
                 { type: 'wait_clear' },
 
-                // 3. CAOS TOTAL: Teste final de Dashes e Tiros
-                { type: 'blue_coin', delay: 0 },
-                { type: 'red_coin', delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2200, y: 200, delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2200, y: 800, delay: 0 },
-                { type: 'mushroom', upgraded: true, delay: 0 },
+            // TESTE 3: Grande finale de combate misto
                 { type: 'orange', delay: 0 },
-                { type: 'bee', upgraded: true, delay: 0 },
-                { type: 'orange', delay: 0 },
-                { type: 'flicker', upgraded: true, x: 2100, y: 500, delay: 5000 },
+            { type: 'mushroom', delay: 0 },
+            { type: 'bee', delay: 300 },
+            { type: 'orange', delay: 500 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+            { type: 'orange', delay: 500 },
+            { type: 'flicker', y: 250, delay: 400 },
+            { type: 'flicker', y: 500, delay: 400 },
+            { type: 'fairy', x: 2150, y: 230, delay: 400 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+            { type: 'orange', delay: 500 },
+            { type: 'flicker', y: 780, delay: 500 },
+            { type: 'fairy', x: 2250, y: 260, delay: 600 },
+            { type: 'bee', delay: 500 },
+            { type: 'mushroom', delay: 700 },
+                { type: 'wait_clear' },
                 
-                // Chuva de XP / Recompensas no final para garantir o Nível 7
-                { type: 'gold_coin', delay: 500 },
-                { type: 'gold_coin', delay: 500 },
-                { type: 'gold_coin', delay: 500 },
-                { type: 'gold_coin', delay: 500 },
+                // RECOMPENSA FINAL: Chuva de Tudo para garantir Lvl 7 e entrada em Phase 2
+                { type: 'blue_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'gold_coin', y: 200, delay: 500 },
+                { type: 'gold_coin', y: 500, delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'red_coin', delay: 500 },
+                { type: 'gold_coin', y: 800, delay: 500 },
+                { type: 'gold_coin', y: 350, delay: 500 },
+                { type: 'gold_coin', y: 650, delay: 0 },
                 { type: 'wait_clear' }
             ]
         }
     ];
   }
+
+    init(data) {
+        this.continueData = data && data.continueData ? data.continueData : null;
+        this.saveSlotId = Number.isFinite(data && data.saveSlotId) ? Math.floor(data.saveSlotId) : null;
+        if (this.continueData && Number.isFinite(this.continueData.slotId)) {
+            this.saveSlotId = Math.floor(this.continueData.slotId);
+        }
+    }
+
+    getBirdSaveData() {
+        if (!this.bird) return null;
+
+        return {
+            level: this.bird.level,
+            xp: this.bird.xp,
+            score: this.bird.score,
+            ammo: this.bird.ammo,
+            lives: this.bird.lives,
+            maxLives: this.bird.maxLives,
+            storedShields: this.bird.storedShields,
+            storedHeals: this.bird.storedHeals,
+            shields: this.bird.shields
+        };
+    }
+
+    saveCheckpoint(round = this.currentRound) {
+        const birdData = this.getBirdSaveData();
+        if (!birdData) return;
+
+        const safeRound = Phaser.Math.Clamp(Math.floor(round || 1), 1, this.roundRecipes.length);
+        const updatedRun = SaveService.saveCheckpoint({
+            slotId: this.saveSlotId,
+            currentPhase: 1,
+            currentRound: safeRound,
+            birdData
+        });
+        if (updatedRun && Number.isFinite(updatedRun.slotId)) {
+            this.saveSlotId = updatedRun.slotId;
+        }
+    }
 
   preload() {
     Bird.preload(this); Mushroom.preload(this); Bee.preload(this); Flicker.preload(this);
@@ -368,9 +643,58 @@ export default class Phase1Scene extends Phaser.Scene {
     // SOUNDTRACK
     this.load.audio('bgm_pre_start', 'assets/soundtrack/pre-start.mp3');
     this.load.audio('bgm_phase1', 'assets/soundtrack/phase1.mp3');
+        this.load.audio('bgm_phase1_music2', 'assets/soundtrack/phase1_music2.mp3');
     this.load.audio('bgm_phase2', 'assets/soundtrack/phase2.mp3');
     this.load.audio('bgm_pause', 'assets/soundtrack/pause.mp3');
+
+        this.preloadSfxAssets();
   }
+
+    preloadSfxAssets() {
+        const sfxEntries = [
+            ['bee_die', 'assets/Audio/bee_die.mp3'],
+            ['boss_die', 'assets/Audio/boss_die.mp3'],
+            ['boss_swing_attack', 'assets/Audio/boss_swing_attack.mp3'],
+            ['boss_teleport_attack', 'assets/Audio/boss_teleport_attack.mp3'],
+            ['fairy_attack', 'assets/Audio/fairy_attack.mp3'],
+            ['fairy_die', 'assets/Audio/fairy_die.mp3'],
+            ['flicker_die', 'assets/Audio/flicker_die.mp3'],
+            ['mushroom_die', 'assets/Audio/mushroom_die.mp3'],
+            ['orange_die', 'assets/Audio/orange_die.mp3'],
+            ['blue_red_coin', 'assets/Audio/blue_red_coin.ogg'],
+            ['gold_coin', 'assets/Audio/gold_coin.mp3'],
+            ['shield', 'assets/Audio/shield.ogg'],
+            ['healing', 'assets/Audio/healing.mp3'],
+            ['level_up', 'assets/Audio/level_up.mp3'],
+            ['round_clear', 'assets/Audio/round_clear.mp3'],
+            ['dash', 'assets/Audio/dash.mp3'],
+            ['food', 'assets/Audio/food.mp3'],
+            ['explosion', 'assets/Audio/explosão.ogg']
+        ];
+
+        for (let i = 1; i <= 10; i++) {
+            sfxEntries.push([`coco_monstro${i}`, `assets/Audio/coco_monstro${i}.ogg`]);
+        }
+
+        sfxEntries.forEach(([key, path]) => {
+            if (!this.cache.audio.exists(key)) {
+                this.load.audio(key, path);
+            }
+        });
+    }
+
+    playSfx(key, options = {}) {
+        if (!key || !this.cache.audio.exists(key)) return;
+
+        const baseVolume = options.volume ?? 1;
+        const finalVolume = Phaser.Math.Clamp(baseVolume * this.sfxMasterVolume, 0, 1);
+        this.sound.play(key, { ...options, volume: finalVolume });
+    }
+
+    playRandomCocoMonstro(options = {}) {
+        const index = Phaser.Math.Between(1, 10);
+        this.playSfx(`coco_monstro${index}`, options);
+    }
 
   create() {
     const w = 1920; const h = 1080;
@@ -411,9 +735,23 @@ export default class Phase1Scene extends Phaser.Scene {
 
     this.mushrooms = this.add.group(); this.bees = this.add.group(); this.flickers = this.add.group();
     this.coins = this.add.group(); this.redCoins = this.add.group(); this.goldCoins = this.add.group(); this.fruits = this.add.group();
-    this.poops = this.add.group(); this.oranges = this.add.group();
+        this.poops = this.add.group(); this.oranges = this.add.group(); this.fairies = this.add.group(); this.enemyProjectiles = this.add.group();
 
-    this.cursors = this.input.keyboard.createCursorKeys();
+        this.onFairyShoot = (proj) => {
+            if (proj && proj.active) this.enemyProjectiles.add(proj);
+        };
+        this.events.on('fairyShoot', this.onFairyShoot);
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            this.events.off('fairyShoot', this.onFairyShoot);
+        });
+
+    // SETUP DE CONTROLES: Usa o perfil de controle salvo em SettingsService
+    const controlScheme = SettingsService.getControlScheme();
+    const inputBindings = InputProfileService.createInputBindings(this, controlScheme);
+    this.bird.setControlBindings(inputBindings);
+
+    // Setup de teclas de debug (fora do perfil de jogador)
+    this.cursors = inputBindings.cursors;  // Guarda para referência da cena se necessário
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.xpDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
@@ -421,14 +759,20 @@ export default class Phase1Scene extends Phaser.Scene {
 
     // SOUND MANAGER
     this.sound.stopAll();
+    
+    // Carrega volume master das configurações
+    const masterVolume = SettingsService.getMasterVolume() / 100; // Normaliza de 0-100 para 0-1
+    this.sfxMasterVolume = masterVolume;
+    
     this.bgmPhase1 = this.sound.add('bgm_phase1', { loop: true, volume: 0 });
+    this.bgmPhase1Music2 = this.sound.add('bgm_phase1_music2', { loop: true, volume: 0 });
     this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0.3 });
     this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
     
     this.bgmPhase1.play();
     this.tweens.add({
         targets: this.bgmPhase1,
-        volume: 0.4,
+        volume: 0.4 * masterVolume,  // Aplica volume master à transição
         duration: 2000
     });
 
@@ -444,6 +788,27 @@ export default class Phase1Scene extends Phaser.Scene {
     this.events.on('updateProgress', (data) => this.updateProgressionHUD(data));
     this.events.on('updateMaxLives', (maxLives) => this.rebuildHeartsHUD(maxLives));
 
+    if (this.continueData && this.continueData.currentPhase === 1) {
+        if (this.continueData.birdData && this.bird) {
+            this.bird.syncFromData(this.continueData.birdData);
+        }
+
+        if (Number.isFinite(this.continueData.slotId)) {
+            this.saveSlotId = Math.floor(this.continueData.slotId);
+        }
+
+        this.currentRound = Phaser.Math.Clamp(
+            Math.floor(this.continueData.currentRound || 1),
+            1,
+            this.roundRecipes.length
+        );
+        this.updateRoundHUD();
+
+        if (this.currentRound >= 4) {
+            this.transitionToMusic(this.bgmPhase1Music2, 0.4, 1200);
+        }
+    }
+
     const handlePoopHit = (poop, enemy) => {
         if (enemy.isDead || !enemy.active) return;
 
@@ -458,8 +823,10 @@ export default class Phase1Scene extends Phaser.Scene {
         // Causa o dano do projétil/explosão
         if (typeof enemy.takeDamage === 'function') {
             enemy.takeDamage(poop.damage);
+            this.playRandomCocoMonstro({ volume: 0.7 });
         } else {
             enemy.die();
+            this.playRandomCocoMonstro({ volume: 0.7 });
         }
 
         // Regra de Penetração e Destruição (Apenas para o projétil em voo)
@@ -481,6 +848,7 @@ export default class Phase1Scene extends Phaser.Scene {
     this.physics.add.overlap(this.poops, this.flickers, handlePoopHit);
     this.physics.add.overlap(this.poops, this.bees, handlePoopHit);
     this.physics.add.overlap(this.poops, this.oranges, handlePoopHit);
+    this.physics.add.overlap(this.poops, this.fairies, handlePoopHit);
 
     this.physics.add.collider(this.poops, this.ground, (poop, ground) => {
         if (!poop.isExploding) {
@@ -511,6 +879,13 @@ export default class Phase1Scene extends Phaser.Scene {
     this.physics.add.overlap(this.bird, this.bees, handleEnemyCollision);
     this.physics.add.overlap(this.bird, this.mushrooms, handleEnemyCollision);
     this.physics.add.overlap(this.bird, this.oranges, handleEnemyCollision);
+    this.physics.add.overlap(this.bird, this.fairies, handleEnemyCollision);
+    this.physics.add.overlap(this.bird, this.enemyProjectiles, (bird, proj) => {
+        if (!bird.isDead && !bird.isDashing && !bird.isInvincible) {
+            bird.takeDamage();
+        }
+        if (proj && proj.active) proj.destroy();
+    });
 
     this.physics.add.overlap(this.bird, this.redCoins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(bird); } });
     this.physics.add.overlap(this.bird, this.coins, (bird, coin) => { if (!bird.isDead && !coin.isCollected) { coin.collect(); bird.collectShieldItem(); bird.gainExperience(5, 50); } });
@@ -556,21 +931,31 @@ export default class Phase1Scene extends Phaser.Scene {
             this.isGameStarted = true; this.bird.setCollideWorldBounds(true); this.startRound();
             
             // SPAWN DE FRUTAS CONSTANTE (A cada 4000ms)
-            this.time.addEvent({
-                delay: 4000,
-                callback: () => {
+            const scheduleNextFruitSpawn = () => {
+                if (!this.sys || !this.sys.isActive()) return;
+
+                const delay = this.currentRound >= 7 ? 2200 : 4000;
+
+                this.time.delayedCall(delay, () => {
+                    if (!this.sys || !this.sys.isActive()) return;
+
                     if (this.isGameStarted && !this.isGameOver && !this.isPaused) {
-                        
-                        // ATUALIZADO: No Round 5 e 6, tem 70% de chance de NÃO nascer fruta
-                        if ((this.currentRound === 5 || this.currentRound === 6) && Phaser.Math.Between(1, 100) <= 70) return;
+                        // Round 5 e 6: mantém chance de redução do spawn.
+                        if ((this.currentRound === 5 || this.currentRound === 6) && Phaser.Math.Between(1, 100) <= 70) {
+                            scheduleNextFruitSpawn();
+                            return;
+                        }
 
                         const w = 1920;
                         const fruitType = Phaser.Utils.Array.GetRandom(['fruit_apple', 'fruit_banana', 'fruit_cherry']);
                         this.fruits.add(new Fruit(this, w + 200, Phaser.Math.Between(300, 600), fruitType));
                     }
-                },
-                loop: true
-            });
+
+                    scheduleNextFruitSpawn();
+                });
+            };
+
+            scheduleNextFruitSpawn();
 
             // HUD Geral exceto Score e Round Bar
             this.tweens.add({
@@ -603,6 +988,10 @@ export default class Phase1Scene extends Phaser.Scene {
     if (this.isGameOver) return;
     const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
     if (!recipe) { this.startTransitionToPhase2(); return; }
+
+        if (this.currentRound >= 4) {
+                this.transitionToMusic(this.bgmPhase1Music2, 0.4, 2000);
+        }
     
     const w = 1920; const h = 1080;
     const roundText = this.add.text(w / 2, h / 2, `ROUND ${this.currentRound}`, { fontFamily: 'KenneyRocket', fontSize: '100px', fill: '#fff', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setDepth(1000);
@@ -640,6 +1029,37 @@ export default class Phase1Scene extends Phaser.Scene {
     this.processSpawnQueue();
   }
 
+    transitionToMusic(nextTrack, targetVolume = 0.4, duration = 2000) {
+        if (!nextTrack) return;
+
+        const allTracks = [this.bgmPhase1, this.bgmPhase1Music2].filter(Boolean);
+
+        allTracks.forEach((track) => {
+            if (track === nextTrack) return;
+            if (track.isPlaying && track.volume > 0) {
+                this.tweens.add({
+                    targets: track,
+                    volume: 0,
+                    duration,
+                    onComplete: () => {
+                        if (track.isPlaying) track.stop();
+                    }
+                });
+            }
+        });
+
+        if (!nextTrack.isPlaying) {
+            nextTrack.setVolume(0);
+            nextTrack.play();
+        }
+
+        this.tweens.add({
+            targets: nextTrack,
+            volume: targetVolume,
+            duration
+        });
+    }
+
   processSpawnQueue() {
     if (this.isGameOver) return;
 
@@ -662,7 +1082,8 @@ export default class Phase1Scene extends Phaser.Scene {
         const activeEnemies = this.flickers.countActive(true) + 
                               this.mushrooms.countActive(true) + 
                               this.bees.countActive(true) + 
-                              this.oranges.countActive(true);
+                              this.oranges.countActive(true) +
+                              this.fairies.countActive(true);
         if (activeEnemies > 0) {
             // Se ainda tem inimigo, tenta de novo em meio segundo
             this.time.delayedCall(500, () => this.processSpawnQueue());
@@ -689,7 +1110,8 @@ export default class Phase1Scene extends Phaser.Scene {
             const fx = step.x || Phaser.Math.Between(w + 100, w + 800);
             const fy = step.y || Phaser.Math.Between(100, h - 200);
             const f = new Flicker(this, fx, fy);
-            if (step.upgraded || this.currentRound >= 6) f.upgrade();
+            // Após a introducao do Flicker evoluido (R5), mantem padrao evoluido.
+            if (step.upgraded || this.currentRound >= 5) f.upgrade();
             this.flickers.add(f);
             break;
         case 'mushroom':
@@ -702,8 +1124,8 @@ export default class Phase1Scene extends Phaser.Scene {
             break;
         case 'bee':
             const b = new Bee(this, w + 100, Phaser.Math.Between(100, h - 300));
-            // AGORA RESPEITA O SCRIPT (step.upgraded)
-            if (step.upgraded || this.currentRound >= 7) b.upgrade();
+            // A Bee evoluida entra no R6; depois disso, priorizamos sempre versao evoluida.
+            if (step.upgraded || this.currentRound >= 6) b.upgrade();
             this.bees.add(b);
             break;
         case 'orange':
@@ -717,6 +1139,14 @@ export default class Phase1Scene extends Phaser.Scene {
             
             this.oranges.add(o); 
             this.physics.add.collider(o, this.ground); 
+            break;
+        case 'fairy':
+            const frx = step.x !== undefined ? step.x : w + 200;
+            const fry = step.y !== undefined ? step.y : Phaser.Math.Between(120, h - 280);
+            const fairy = new Fairy(this, frx, fry);
+            // Fairy normal por padrao; so evolui quando o script pedir explicitamente.
+            if (step.upgraded) fairy.upgrade();
+            this.fairies.add(fairy);
             break;
         case 'red_coin':
             this.redCoins.add(new RedCoin(this, w + 200, Phaser.Math.Between(200, h - 300)));
@@ -747,7 +1177,7 @@ export default class Phase1Scene extends Phaser.Scene {
 
   checkRoundEnd() {
     if (this.isSpawningFinished && !this.isRoundTransitioning) {
-        if (this.flickers.countActive(true) + this.mushrooms.countActive(true) + this.bees.countActive(true) + this.oranges.countActive(true) === 0) {
+    if (this.flickers.countActive(true) + this.mushrooms.countActive(true) + this.bees.countActive(true) + this.oranges.countActive(true) + this.fairies.countActive(true) === 0) {
             
             // Adiciona uma Blue Coin no final do Round 7
             if (this.currentRound === 7) {
@@ -756,6 +1186,7 @@ export default class Phase1Scene extends Phaser.Scene {
             }
 
             this.isRoundTransitioning = true; 
+            this.playSfx('round_clear', { volume: 0.95 });
             
             // FADE OUT DA BARRA DE ROUND
             this.tweens.add({
@@ -766,7 +1197,11 @@ export default class Phase1Scene extends Phaser.Scene {
             });
             
             this.time.delayedCall(3000, () => { 
-                this.currentRound++;
+                const nextRound = this.currentRound + 1;
+                if (nextRound <= this.roundRecipes.length) {
+                    this.saveCheckpoint(nextRound);
+                }
+                this.currentRound = nextRound;
                 
                 // Trava de Transição de Fases (Tarefa 3)
                 if (this.currentRound > this.roundRecipes.length) {
@@ -793,7 +1228,7 @@ export default class Phase1Scene extends Phaser.Scene {
 
   debugSkipRound() {
     this.spawnQueue = []; this.isSpawningFinished = true;
-    this.flickers.getChildren().forEach(f => f.die()); this.mushrooms.getChildren().forEach(m => m.die()); this.bees.getChildren().forEach(b => b.die()); this.oranges.getChildren().forEach(o => o.die());
+        this.flickers.getChildren().forEach(f => f.die()); this.mushrooms.getChildren().forEach(m => m.die()); this.bees.getChildren().forEach(b => b.die()); this.oranges.getChildren().forEach(o => o.die()); this.fairies.getChildren().forEach(f => f.die()); this.enemyProjectiles.getChildren().forEach(p => p.destroy());
   }
 
   update(time, delta) {
@@ -812,8 +1247,9 @@ export default class Phase1Scene extends Phaser.Scene {
     if (this.bird && this.bird.isDead) { 
         if (this.bird.y > 1080 + 100 && !this.isGameOver) { 
             this.isGameOver = true; 
-            if (this.bgmPhase1) this.bgmPhase1.stop();
+            this.sound.stopAll();
             this.sound.play('sfx_game_over', { loop: false });
+            this.setLowHealthBorderActive(false);
             
             this.gameOverGroup.setVisible(true);
             this.tweens.add({
@@ -822,7 +1258,7 @@ export default class Phase1Scene extends Phaser.Scene {
                 duration: 1000
             });
             this.tweens.add({
-                targets: [this.gameOverText, this.gameOverBtn],
+                targets: [this.gameOverText, this.gameOverHomeBtn],
                 alpha: 1,
                 duration: 1000
             });
@@ -835,6 +1271,10 @@ export default class Phase1Scene extends Phaser.Scene {
     this.bees.getChildren().forEach(b => b.update(this.bird));
     this.flickers.getChildren().forEach(f => f.update(this.bird));
     this.oranges.getChildren().forEach(o => o.update(this.bird, time, delta));
+    this.fairies.getChildren().forEach(f => f.update(this.bird, time, delta));
+    this.enemyProjectiles.getChildren().forEach(p => {
+        if (p.update) p.update(time, delta);
+    });
     this.coins.getChildren().forEach(c => c.update());
     this.goldCoins.getChildren().forEach(c => c.update());
     this.fruits.getChildren().forEach(f => f.update(time));
@@ -846,6 +1286,16 @@ export default class Phase1Scene extends Phaser.Scene {
     this.hearts = []; this.shieldIcons = []; const iconY = h - 30;
     for (let i = 0; i < 3; i++) { const heart = this.add.image(80 + (i * 65), iconY, 'hearth').setScale(1.5).setDepth(500).setScrollFactor(0); this.hearts.push(heart); }
     for (let i = 0; i < 3; i++) { const shield = this.add.image(300 + (i * 55), iconY, 'shield_icon').setScale(2).setDepth(500).setScrollFactor(0); shield.setVisible(false); this.shieldIcons.push(shield); }
+
+        if (!this.lowHealthBorder) {
+            const w = this.scale.width;
+            const h = this.scale.height;
+            this.lowHealthBorder = this.add.rectangle(w / 2, h / 2, w - 10, h - 10)
+                .setStrokeStyle(12, 0xff0000, 1)
+                .setDepth(1200)
+                .setScrollFactor(0)
+                .setAlpha(0);
+        }
   }
 
   rebuildHeartsHUD(maxLives) {
@@ -868,7 +1318,35 @@ export default class Phase1Scene extends Phaser.Scene {
     const lives = data.lives !== undefined ? data.lives : 3; const shields = data.shields !== undefined ? data.shields : 0;
     this.hearts.forEach((h, i) => { h.setTexture(i < lives ? 'hearth' : 'hearth_dead'); });
     this.shieldIcons.forEach((s, i) => { s.setVisible(i < shields); });
+        this.setLowHealthBorderActive(lives <= 1 && shields <= 0);
   }
+
+    setLowHealthBorderActive(isActive) {
+        if (!this.lowHealthBorder) return;
+
+        const shouldPulse = isActive && !this.isGameOver;
+
+        if (shouldPulse) {
+            if (!this.lowHealthTween) {
+                this.lowHealthBorder.setAlpha(0.12);
+                this.lowHealthTween = this.tweens.add({
+                    targets: this.lowHealthBorder,
+                    alpha: 0.7,
+                    duration: 550,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+            }
+            return;
+        }
+
+        if (this.lowHealthTween) {
+            this.lowHealthTween.stop();
+            this.lowHealthTween = null;
+        }
+        this.lowHealthBorder.setAlpha(0);
+    }
 
   createAmmoHUD() {
     const h = 1080; const iconY = h - 30;
@@ -950,11 +1428,13 @@ export default class Phase1Scene extends Phaser.Scene {
 
   updateProgressionHUD(data) {
     if (this.scoreText) this.scoreText.setText('SCORE: ' + data.score);
-    if (this.levelText) this.levelText.setText('LEVEL ' + data.level);
-    this.drawXPBar(data.xp / data.xpNextLevel);
+        if (this.levelText) this.levelText.setText(data.level >= 10 ? 'LEVEL MAX' : ('LEVEL ' + data.level));
+        this.drawXPBar(data.level >= 10 ? 1 : (data.xp / data.xpNextLevel));
   }
 
   updateRoundHUD() {
+        if (!this.roundBarFill || !this.roundBarData || !this.roundHeaderText) return;
+
     const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
     if (!recipe) return;
 
@@ -987,10 +1467,22 @@ export default class Phase1Scene extends Phaser.Scene {
         shields: this.bird.shields
     };
 
+    const updatedRun = SaveService.saveCheckpoint({
+        slotId: this.saveSlotId,
+        currentPhase: 2,
+        currentRound: 1,
+        birdData
+    });
+    if (updatedRun && Number.isFinite(updatedRun.slotId)) {
+        this.saveSlotId = updatedRun.slotId;
+    }
+
+    const phase2Payload = { ...birdData, saveSlotId: this.saveSlotId };
+
     if (isInstant) {
-        this.scene.start('Phase2Scene', birdData);
+        this.scene.start('Phase2Scene', phase2Payload);
     } else {
-        this.startTransitionToPhase2(birdData);
+        this.startTransitionToPhase2(phase2Payload);
     }
   }
 
@@ -1057,30 +1549,125 @@ export default class Phase1Scene extends Phaser.Scene {
 
     // Eventos dos botões
     resumeBtn.on('pointerdown', () => this.togglePause());
-    restartBtn.on('pointerdown', () => { this.scene.restart(); });
+        restartBtn.on('pointerdown', () => { this.restartCurrentRoundFromPause(); });
     homeBtn.on('pointerdown', () => { window.location.reload(); });
   }
+
+    restartCurrentRoundFromPause() {
+        const checkpointRound = Phaser.Math.Clamp(
+            Math.floor(this.currentRound || 1),
+            1,
+            this.roundRecipes.length
+        );
+
+        this.saveCheckpoint(checkpointRound);
+
+        const run = this.resolveRunForPauseRestart(checkpointRound);
+        if (!run || !run.birdData) return;
+
+        this.cleanupForRoundRestart();
+        this.scene.start('Phase1Scene', { continueData: run, saveSlotId: run.slotId });
+    }
+
+    resolveRunForPauseRestart(targetRound) {
+        const slotFromContinue = this.continueData && Number.isFinite(this.continueData.slotId)
+            ? Math.floor(this.continueData.slotId)
+            : null;
+
+        let run = Number.isFinite(this.saveSlotId) ? SaveService.loadRun(this.saveSlotId) : null;
+        if (!run && Number.isFinite(slotFromContinue)) {
+            run = SaveService.loadRun(slotFromContinue);
+        }
+
+        if (!run) {
+            const recentRuns = SaveService.loadRecentRuns(3);
+            run = recentRuns.find((r) => r.currentPhase === 1) || null;
+        }
+
+        if (!run || !run.birdData) {
+            const birdData = this.getBirdSaveData();
+            if (!birdData) return null;
+
+            const createdRun = SaveService.saveCheckpoint({
+                slotId: Number.isFinite(this.saveSlotId) ? this.saveSlotId : slotFromContinue,
+                currentPhase: 1,
+                currentRound: targetRound,
+                birdData
+            });
+
+            if (!createdRun || !createdRun.birdData) return null;
+            if (Number.isFinite(createdRun.slotId)) this.saveSlotId = createdRun.slotId;
+
+            return {
+                ...createdRun,
+                currentPhase: 1,
+                currentRound: targetRound,
+                slotId: createdRun.slotId
+            };
+        }
+
+        const normalizedRun = {
+            ...run,
+            currentPhase: 1,
+            currentRound: targetRound,
+            slotId: run.slotId
+        };
+
+        SaveService.saveCheckpoint({
+            slotId: normalizedRun.slotId,
+            currentPhase: 1,
+            currentRound: targetRound,
+            birdData: normalizedRun.birdData
+        });
+
+        if (Number.isFinite(normalizedRun.slotId)) this.saveSlotId = normalizedRun.slotId;
+        return normalizedRun;
+    }
+
+    cleanupForRoundRestart() {
+        this.isPaused = false;
+        this.isGameOver = false;
+        this.isRoundTransitioning = false;
+        this.isSpawningFinished = true;
+
+        if (this.pauseGroup) this.pauseGroup.setVisible(false);
+
+        this.physics.resume();
+        this.anims.resumeAll();
+        this.tweens.killAll();
+        this.time.removeAllEvents();
+
+        if (this.bgmPause) this.bgmPause.stop();
+        if (this.bgmPhase1) this.bgmPhase1.stop();
+        if (this.bgmPhase1Music2) this.bgmPhase1Music2.stop();
+    }
 
   updatePauseStats() {
     if (!this.bird) return;
     const dashDmg = this.bird.getDashDamage();
     const poopDmg = this.bird.getShootDamage();
+    const levelLabel = this.bird.level >= 10 ? 'MAX' : this.bird.level;
+
+    // Obtém as teclas do perfil selecionado
+    const controlScheme = SettingsService.getControlScheme();
+    const displayKeys = InputProfileService.getDisplayKeysForProfile(controlScheme);
 
     // Montando a Coluna da Esquerda
     const leftText = 
-        `NÍVEL ATUAL: ${this.bird.level}\n` +
+        `NÍVEL ATUAL: ${levelLabel}\n` +
         `PONTUAÇÃO: ${this.bird.score}\n` +
         `VIDAS: ${this.bird.lives} / ${this.bird.maxLives}\n\n` +
         `DANO DO DASH: ${dashDmg}\n` +
         `DANO DO COCO: ${poopDmg}\n` +
         `MUNIÇÃO: ${this.bird.ammo} / ${this.bird.maxAmmo}`;
-    // Montando a Coluna da Direita (Hotkeys)
+    
+    // Montando a Coluna da Direita (Hotkeys) - sincronizado com o perfil
     const rightText = 
-        `[ SETAS ]  MOVER\n` +
-        `[ D ]  DASH (Invencível)\n` +
-        `[ESPAÇO]  ATIRAR\n\n\n` +
-        `[   S   ]  USAR ESCUDO    x ${this.bird.storedShields}\n` +
-        `[   R   ]  USAR CURA      x ${this.bird.storedHeals}`;
+        `[ ${displayKeys.moveLabel} ]  MOVER\n` +
+        `[ ${displayKeys.dashKey} ]  DASH (Invencível)\n` +
+        `[ ${displayKeys.shootKey} ]  ATIRAR\n\n\n` +
+        `[ ${displayKeys.shieldKey} ]  USAR ESCUDO    x ${this.bird.storedShields}\n` +
+        `[ ${displayKeys.healKey} ]  USAR CURA      x ${this.bird.storedHeals}`;
 
     this.statsTextLeft.setText(leftText);
     this.statsTextRight.setText(rightText);
@@ -1090,27 +1677,19 @@ export default class Phase1Scene extends Phaser.Scene {
     this.gameOverGroup = this.add.group();
     this.gameOverOverlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.8).setOrigin(0).setDepth(300);
     this.gameOverText = this.add.text(w / 2, h / 2 - 120, 'GAME OVER', { fontSize: '150px', fontFamily: 'KenneyRocket', fill: '#f00', stroke: '#000', strokeThickness: 15 }).setOrigin(0.5).setDepth(301);
-    this.gameOverBtn = this.add.text(w / 2, h / 2 + 60, 'RESTART', { fontSize: '80px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#333', padding: { x: 40, y: 20 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(301);
+    this.gameOverHomeBtn = this.add.text(w / 2, h / 2 + 120, 'MENU PRINCIPAL', { fontSize: '58px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#444', padding: { x: 26, y: 14 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(301);
     
     this.gameOverOverlay.setAlpha(0);
     this.gameOverText.setAlpha(0);
-    this.gameOverBtn.setAlpha(0);
+    this.gameOverHomeBtn.setAlpha(0);
 
     this.gameOverGroup.add(this.gameOverOverlay); 
     this.gameOverGroup.add(this.gameOverText); 
-    this.gameOverGroup.add(this.gameOverBtn);
+    this.gameOverGroup.add(this.gameOverHomeBtn);
     this.gameOverGroup.setVisible(false);
 
-    this.gameOverBtn.on('pointerdown', () => { 
-        this.tweens.add({
-            targets: [this.gameOverOverlay, this.gameOverText, this.gameOverBtn],
-            alpha: 0,
-            duration: 500,
-            onComplete: () => {
-                this.isGameOver = false; 
-                this.scene.restart(); 
-            }
-        });
+    this.gameOverHomeBtn.on('pointerdown', () => {
+      window.location.reload();
     });
   }
 
@@ -1126,13 +1705,21 @@ export default class Phase1Scene extends Phaser.Scene {
         // Atualiza os Stats do Tori antes de mostrar o menu
         this.updatePauseStats();
 
-        if (this.bgmPhase1) this.bgmPhase1.pause(); 
-        if (this.bgmPause) this.bgmPause.play();
+        [this.bgmPhase1, this.bgmPhase1Music2].forEach((track) => {
+            if (track && track.isPlaying) track.pause();
+        });
+
+        if (this.bgmPause) {
+            if (this.bgmPause.isPlaying) this.bgmPause.stop();
+            this.bgmPause.play();
+        }
     } else {
         this.physics.resume();
         this.anims.resumeAll(); // RETOMA AS ANIMAÇÕES
         if (this.bgmPause) this.bgmPause.stop();
-        if (this.bgmPhase1) this.bgmPhase1.resume(); 
+        [this.bgmPhase1, this.bgmPhase1Music2].forEach((track) => {
+            if (track && track.isPaused) track.resume();
+        });
     }
   }
 }

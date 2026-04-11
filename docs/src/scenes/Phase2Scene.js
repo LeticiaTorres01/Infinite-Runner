@@ -11,6 +11,9 @@ import Fruit from '../objects/Fruit.js';
 import MagicProjectile from '../objects/MagicProjectile.js';
 import SwordBoss from '../objects/SwordBoss.js';
 import RedCoin from '../objects/RedCoin.js';
+import SaveService from '../services/SaveService.js';
+import { SettingsService } from '../services/SettingsService.js';
+import { InputProfileService } from '../services/InputProfileService.js';
 
 export default class Phase2Scene extends Phaser.Scene {
   constructor() {
@@ -40,12 +43,28 @@ export default class Phase2Scene extends Phaser.Scene {
     this.isBossTransitioning = false;
     this.isBossFightActive = false;
     this.bossFruitTimer = null;
+    this.sfxMasterVolume = 1;
     this.roundRecipes = [
         { 
             round: 1, scripted: true, 
             sequence: [
-                { type: 'flicker', ultimate: true, delay: 5000 },
-                { type: 'wait_clear' },
+                { type: 'flicker', ultimate: true, delay: 0 },
+                { type: 'flicker', ultimate: true, delay: 0 },
+                { type: 'flicker', ultimate: true, delay: 0 },
+                { type: 'flicker', ultimate: true, delay: 0 },
+                { type: 'fairy', delay: 0 },
+                { type: 'orange', ultimate: true, delay: 5000 },
+                { type: 'flicker', ultimate: true, delay: 0 },
+                { type: 'flicker', ultimate: true, delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
+                { type: 'fairy', delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
+                { type: 'orange', delay: 2000 },
+                { type: 'orange', ultimate: true, delay: 5000 },
+                { type: 'orange', delay: 2000 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'fairy', delay: 0 },
                 { type: 'mushroom', upgraded: true, delay: 2000 },
                 { type: 'orange', delay: 2000 },
                 { type: 'blue_coin', delay: 0 },
@@ -56,10 +75,23 @@ export default class Phase2Scene extends Phaser.Scene {
             round: 2, scripted: true, 
             sequence: [
                 { type: 'fairy', delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
+                { type: 'fairy', delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
+                { type: 'orange', ultimate: true, delay: 5000 },
+                { type: 'fairy', delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
+                { type: 'fairy', delay: 0 },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
                 { type: 'wait_clear' },
+                { type: 'red_coin', delay: 0 },
                 { type: 'bee', ultimate: true, delay: 4000 },
                 { type: 'flicker', upgraded: true, delay: 0 },
+                { type: 'bee', ultimate: true, delay: 4000 },
                 { type: 'orange', delay: 0 },
+                { type: 'bee', ultimate: true, delay: 4000 },
+                { type: 'orange', ultimate: true, delay: 5000 },
                 { type: 'wait_clear' }
             ]
         },
@@ -68,9 +100,30 @@ export default class Phase2Scene extends Phaser.Scene {
             sequence: [
                 { type: 'mushroom', ultimate: true, delay: 2000 },
                 { type: 'orange', ultimate: true, delay: 5000 },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
+                { type: 'fairy', delay: 0 },
+                { type: 'orange', ultimate: true, delay: 5000 },
+                { type: 'fairy', delay: 3000 },
+                { type: 'bee', ultimate: true, delay: 4000 },
+                { type: 'mushroom', upgraded: true, delay: 2000 },
+                { type: 'fairy', delay: 0 },
+                { type: 'orange', ultimate: true, delay: 5000 },
                 { type: 'wait_clear' },
+                { type: 'fairy', delay: 3000 },
+                { type: 'red_coin', delay: 0 },
                 { type: 'mushroom', ultimate: true, delay: 0 },
                 { type: 'orange', ultimate: true, delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'mushroom', ultimate: true, delay: 0 },
+                { type: 'orange', ultimate: true, delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'mushroom', ultimate: true, delay: 0 },
+                { type: 'fairy', delay: 3000 },
+                { type: 'bee', ultimate: true, delay: 4000 },
+                { type: 'orange', ultimate: true, delay: 0 },
+                { type: 'mushroom', ultimate: true, delay: 0 },
+                { type: 'fairy', delay: 3000 },
                 { type: 'red_coin', delay: 0 },
                 { type: 'wait_clear' }
             ]
@@ -79,10 +132,24 @@ export default class Phase2Scene extends Phaser.Scene {
             round: 4, scripted: true, 
             sequence: [
                 { type: 'flicker', upgraded: true, delay: 3000 },
+                { type: 'bee', ultimate: true, delay: 4000 },
+                { type: 'orange', ultimate: true, delay: 0 },
                 { type: 'bee', upgraded: true, delay: 3000 },
+                { type: 'orange', ultimate: true, delay: 0 },
+                { type: 'bee', ultimate: true, delay: 4000 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'red_coin', delay: 0 },
                 { type: 'fairy', delay: 3000 },
+                { type: 'bee', ultimate: true, delay: 4000 },
+                { type: 'orange', ultimate: true, delay: 0 },
+                { type: 'red_coin', delay: 0 },
                 { type: 'orange', delay: 3000 },
+                { type: 'bee', ultimate: true, delay: 4000 },
                 { type: 'mushroom', upgraded: true, delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'orange', ultimate: true, delay: 0 },
+                { type: 'bee', ultimate: true, delay: 4000 },
                 { type: 'wait_clear' }
             ]
         },
@@ -93,6 +160,23 @@ export default class Phase2Scene extends Phaser.Scene {
                 { type: 'flicker', ultimate: true, delay: 2000 },
                 { type: 'bee', ultimate: true, delay: 2000 },
                 { type: 'orange', ultimate: true, delay: 2000 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'mushroom', ultimate: true, delay: 0 },
+                { type: 'fairy', ultimate: true, delay: 2000 },
+                { type: 'wait_clear' },
+                { type: 'flicker', ultimate: true, delay: 2000 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'bee', ultimate: true, delay: 2000 },
+                { type: 'orange', ultimate: true, delay: 2000 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'mushroom', ultimate: true, delay: 0 },
+                { type: 'fairy', ultimate: true, delay: 2000 },
+                { type: 'flicker', ultimate: true, delay: 2000 },
+                { type: 'wait_clear' },
+                { type: 'bee', ultimate: true, delay: 2000 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'orange', ultimate: true, delay: 2000 },
                 { type: 'mushroom', ultimate: true, delay: 0 },
                 { type: 'wait_clear' }
             ]
@@ -101,15 +185,41 @@ export default class Phase2Scene extends Phaser.Scene {
             round: 6, scripted: true, 
             sequence: [
                 { type: 'flicker', ultimate: true, delay: 500 },
+                { type: 'fairy', ultimate: true, delay: 500 },
                 { type: 'bee', ultimate: true, delay: 500 },
+                { type: 'fairy', ultimate: true, delay: 500 },
                 { type: 'orange', ultimate: true, delay: 3000 },
+                { type: 'fairy', ultimate: true, delay: 500 },
                 { type: 'wait_clear' },
                 { type: 'fairy', ultimate: true, delay: 500 },
                 { type: 'mushroom', ultimate: true, delay: 4000 },
+                { type: 'red_coin', delay: 0 },
+                { type: 'red_coin', delay: 0 },
                 { type: 'wait_clear' },
                 { type: 'flicker', ultimate: true, x: 2000, y: 200, delay: 0 },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'flicker', ultimate: true, x: 2000, y: 500, delay: 0 },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'flicker', ultimate: true, x: 2000, y: 800, delay: 0 },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'wait_clear' },
+                { type: 'flicker', ultimate: true, delay: 500 },
+                { type: 'bee', ultimate: true, delay: 500 },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'orange', ultimate: true, delay: 3000 },
+                { type: 'wait_clear' },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'mushroom', ultimate: true, delay: 4000 },
+                { type: 'wait_clear' },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'flicker', ultimate: true, x: 2000, y: 200, delay: 0 },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'fairy', ultimate: true, delay: 500 },
                 { type: 'flicker', ultimate: true, x: 2000, y: 500, delay: 0 },
                 { type: 'flicker', ultimate: true, x: 2000, y: 800, delay: 0 },
+                { type: 'fairy', ultimate: true, delay: 500 },
+                { type: 'fairy', ultimate: true, delay: 500 },
                 { type: 'wait_clear' }
             ]
         }
@@ -121,11 +231,59 @@ export default class Phase2Scene extends Phaser.Scene {
     this.hearts = [];
     this.shieldIcons = [];
     this.birdData = null; 
+    this.continueData = null;
+    this.saveSlotId = null;
+    this.lowHealthBorder = null;
+    this.lowHealthTween = null;
   }
 
   init(data) {
+    this.continueData = data && data.continueData ? data.continueData : null;
+    this.saveSlotId = Number.isFinite(data && data.saveSlotId) ? Math.floor(data.saveSlotId) : null;
+
+    if (this.continueData && this.continueData.birdData && this.continueData.currentPhase === 2) {
+      this.birdData = this.continueData.birdData;
+      this.currentRound = Phaser.Math.Clamp(Math.floor(this.continueData.currentRound || 1), 1, 7);
+      if (Number.isFinite(this.continueData.slotId)) {
+        this.saveSlotId = Math.floor(this.continueData.slotId);
+      }
+      return;
+    }
+
     if (data && data.level) {
-        this.birdData = data;
+      this.birdData = data;
+    }
+  }
+
+  getBirdSaveData() {
+    if (!this.bird) return null;
+
+    return {
+      level: this.bird.level,
+      xp: this.bird.xp,
+      score: this.bird.score,
+      ammo: this.bird.ammo,
+      lives: this.bird.lives,
+      maxLives: this.bird.maxLives,
+      storedShields: this.bird.storedShields,
+      storedHeals: this.bird.storedHeals,
+      shields: this.bird.shields
+    };
+  }
+
+  saveCheckpoint(round = this.currentRound) {
+    const birdData = this.getBirdSaveData();
+    if (!birdData) return;
+
+    const safeRound = Phaser.Math.Clamp(Math.floor(round || 1), 1, 7);
+    const updatedRun = SaveService.saveCheckpoint({
+      slotId: this.saveSlotId,
+      currentPhase: 2,
+      currentRound: safeRound,
+      birdData
+    });
+    if (updatedRun && Number.isFinite(updatedRun.slotId)) {
+      this.saveSlotId = updatedRun.slotId;
     }
   }
 
@@ -157,7 +315,56 @@ export default class Phase2Scene extends Phaser.Scene {
     this.load.image('bg_grama_fundo', 'assets/Layer_0001_8.png');
     this.load.image('bg_chao', 'assets/Layer_0000_9.png');
     this.load.audio('bgm_phase2', 'assets/soundtrack/phase2.mp3');
+    this.load.audio('bgm_rex_infernum', 'assets/soundtrack/Rex_Infernum.mp3');
+    this.load.audio('bgm_boss_die_credits', 'assets/soundtrack/boss_die_credits.mp3');
     this.load.audio('bgm_pause', 'assets/soundtrack/pause.mp3');
+    this.preloadSfxAssets();
+  }
+
+  preloadSfxAssets() {
+    const sfxEntries = [
+      ['bee_die', 'assets/Audio/bee_die.mp3'],
+      ['boss_die', 'assets/Audio/boss_die.mp3'],
+      ['boss_swing_attack', 'assets/Audio/boss_swing_attack.mp3'],
+      ['boss_teleport_attack', 'assets/Audio/boss_teleport_attack.mp3'],
+      ['fairy_attack', 'assets/Audio/fairy_attack.mp3'],
+      ['fairy_die', 'assets/Audio/fairy_die.mp3'],
+      ['flicker_die', 'assets/Audio/flicker_die.mp3'],
+      ['mushroom_die', 'assets/Audio/mushroom_die.mp3'],
+      ['orange_die', 'assets/Audio/orange_die.mp3'],
+      ['blue_red_coin', 'assets/Audio/blue_red_coin.ogg'],
+      ['gold_coin', 'assets/Audio/gold_coin.mp3'],
+      ['shield', 'assets/Audio/shield.ogg'],
+      ['healing', 'assets/Audio/healing.mp3'],
+      ['level_up', 'assets/Audio/level_up.mp3'],
+      ['round_clear', 'assets/Audio/round_clear.mp3'],
+      ['dash', 'assets/Audio/dash.mp3'],
+      ['food', 'assets/Audio/food.mp3'],
+      ['explosion', 'assets/Audio/explosão.ogg']
+    ];
+
+    for (let i = 1; i <= 10; i++) {
+      sfxEntries.push([`coco_monstro${i}`, `assets/Audio/coco_monstro${i}.ogg`]);
+    }
+
+    sfxEntries.forEach(([key, path]) => {
+      if (!this.cache.audio.exists(key)) {
+        this.load.audio(key, path);
+      }
+    });
+  }
+
+  playSfx(key, options = {}) {
+    if (!key || !this.cache.audio.exists(key)) return;
+
+    const baseVolume = options.volume ?? 1;
+    const finalVolume = Phaser.Math.Clamp(baseVolume * this.sfxMasterVolume, 0, 1);
+    this.sound.play(key, { ...options, volume: finalVolume });
+  }
+
+  playRandomCocoMonstro(options = {}) {
+    const index = Phaser.Math.Between(1, 10);
+    this.playSfx(`coco_monstro${index}`, options);
   }
 
   create() {
@@ -183,6 +390,7 @@ export default class Phase2Scene extends Phaser.Scene {
     BlueCoin.createAnimations(this);
     GoldCoin.createAnimations(this);
     RedCoin.createAnimations(this);
+    Poop.createAnimations(this);
     SwordBoss.createAnimations(this);
 
     const addLayer = (key, speed, isLight = false) => {
@@ -247,12 +455,20 @@ export default class Phase2Scene extends Phaser.Scene {
       this.events.off('fairyShoot', this.onFairyShoot);
     });
 
-    this.currentRound = 1;
+    this.currentRound = (this.continueData && this.continueData.currentPhase === 2)
+      ? Phaser.Math.Clamp(Math.floor(this.continueData.currentRound || 1), 1, 7)
+      : 1;
     this.spawnQueue = [];
     this.isSpawningFinished = false;
     this.isRoundTransitioning = false;
 
-    this.cursors = this.input.keyboard.createCursorKeys();
+    // SETUP DE CONTROLES: Usa o perfil de controle salvo em SettingsService
+    const controlScheme = SettingsService.getControlScheme();
+    const inputBindings = InputProfileService.createInputBindings(this, controlScheme);
+    this.bird.setControlBindings(inputBindings);
+
+    // Setup de teclas de debug (fora do perfil de jogador)
+    this.cursors = inputBindings.cursors;  // Guarda para referência da cena se necessário
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.xpDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
@@ -365,14 +581,48 @@ export default class Phase2Scene extends Phaser.Scene {
     });
 
     this.sound.stopAll();
+    
+    // Carrega volume master das configurações
+    const masterVolume = SettingsService.getMasterVolume() / 100; // Normaliza de 0-100 para 0-1
+    this.sfxMasterVolume = masterVolume;
+    this.sound.volume = masterVolume;
+    
     this.bgmPhase2 = this.sound.add('bgm_phase2', { loop: true, volume: 0 });
+    this.bgmRexInfernum = this.sound.add('bgm_rex_infernum', { loop: true, volume: 0 });
+    this.bgmBossDieCredits = this.sound.add('bgm_boss_die_credits', { loop: true, volume: 0 });
     this.bgmPause = this.sound.add('bgm_pause', { loop: true, volume: 0.3 });
 
-    this.bgmPhase2.play();
+    this.transitionToMusic(this.bgmPhase2, 0.4, 2000);
+  }
+
+  transitionToMusic(nextTrack, targetVolume = 0.4, duration = 2000) {
+    if (!nextTrack) return;
+
+    const allTracks = [this.bgmPhase2, this.bgmRexInfernum, this.bgmBossDieCredits].filter(Boolean);
+
+    allTracks.forEach((track) => {
+      if (track === nextTrack) return;
+      if (track.isPlaying && track.volume > 0) {
+        this.tweens.add({
+          targets: track,
+          volume: 0,
+          duration,
+          onComplete: () => {
+            if (track.isPlaying) track.stop();
+          }
+        });
+      }
+    });
+
+    if (!nextTrack.isPlaying) {
+      nextTrack.setVolume(0);
+      nextTrack.play();
+    }
+
     this.tweens.add({
-        targets: this.bgmPhase2,
-        volume: 0.4,
-        duration: 2000
+      targets: nextTrack,
+      volume: targetVolume,
+      duration
     });
   }
 
@@ -638,12 +888,17 @@ export default class Phase2Scene extends Phaser.Scene {
     if (totalActiveEnemies !== 0) return;
 
     this.isRoundTransitioning = true;
+    this.playSfx('round_clear', { volume: 0.95 });
     if (this.currentRound === 4) {
       this.coins.add(new BlueCoin(this, 2120, 540));
     }
 
     this.time.delayedCall(2200, () => {
-      this.currentRound++;
+      const nextRound = this.currentRound + 1;
+      if (nextRound <= 6) this.saveCheckpoint(nextRound);
+      else this.saveCheckpoint(7);
+
+      this.currentRound = nextRound;
       if (this.currentRound > 6) {
         this.startBossTransition();
       } else {
@@ -655,6 +910,8 @@ export default class Phase2Scene extends Phaser.Scene {
   startBossTransition() {
     if (this.isBossTransitioning) return; 
     this.isBossTransitioning = true;
+    this.saveCheckpoint(7);
+    this.updateRoundHUD();
     
     this.bird.isControlLocked = true;
     this.bird.setFlipX(false); 
@@ -766,11 +1023,13 @@ export default class Phase2Scene extends Phaser.Scene {
       if (poop.hitEnemies && poop.hitEnemies.has(boss)) return;
       if (poop.hitEnemies) poop.hitEnemies.add(boss);
       boss.takeDamage(projectileDamage);
+      this.playRandomCocoMonstro({ volume: 0.7 });
       return;
     }
 
     // Impacto direto: boss absorve o dano total e o projetil some.
     boss.takeDamage(projectileDamage);
+    this.playRandomCocoMonstro({ volume: 0.7 });
     poop.destroy();
   }
 
@@ -787,8 +1046,10 @@ export default class Phase2Scene extends Phaser.Scene {
 
     if (typeof enemy.takeDamage === 'function') {
       enemy.takeDamage(poop.damage);
+      this.playRandomCocoMonstro({ volume: 0.7 });
     } else if (typeof enemy.die === 'function') {
       enemy.die();
+      this.playRandomCocoMonstro({ volume: 0.7 });
     }
 
     // Regra de penetracao e destruicao (apenas para o projetil em voo).
@@ -807,6 +1068,7 @@ export default class Phase2Scene extends Phaser.Scene {
 
   beginBossFight() {
     this.isBossFightActive = true;
+    this.updateRoundHUD();
 
     this.events.once('bossIntroComplete', () => {
       this.startBossFightFruits();
@@ -814,6 +1076,17 @@ export default class Phase2Scene extends Phaser.Scene {
 
     this.events.once('bossDefeated', () => {
       this.stopBossFightFruits();
+      this.brightenBackground();
+      this.transitionToMusic(this.bgmBossDieCredits, 0.45, 3500);
+
+      if (this.bird) {
+        this.bird.isInvulnerable = true;
+        this.bird.isControlLocked = true;
+      }
+    });
+
+    this.events.once('bossDeathSequenceComplete', () => {
+      this.showVictorySequence();
     });
 
     if (this.bossFruitTimer) {
@@ -826,6 +1099,8 @@ export default class Phase2Scene extends Phaser.Scene {
         if (fruit && fruit.active) fruit.destroy();
       });
     }
+
+    this.transitionToMusic(this.bgmRexInfernum, 0.45, 2500);
 
   }
 
@@ -875,6 +1150,65 @@ export default class Phase2Scene extends Phaser.Scene {
     this.fruits.add(new Fruit(this, spawnX, spawnY, fruitType, true));
   }
 
+  brightenBackground() {
+    this.tweens.addCounter({
+      from: 0,
+      to: 100,
+      duration: 4000,
+      onUpdate: (tween) => {
+        const value = tween.getValue();
+        const colorObj = Phaser.Display.Color.Interpolate.ColorWithColor(
+          Phaser.Display.Color.ValueToColor(0x7755aa),
+          Phaser.Display.Color.ValueToColor(0xffffff),
+          100,
+          value
+        );
+
+        const color = Phaser.Display.Color.GetColor(colorObj.r, colorObj.g, colorObj.b);
+        this.bgLayers.forEach((layer) => {
+          if (layer.sprite.blendMode !== Phaser.BlendModes.ADD) {
+            layer.sprite.setTint(color);
+          }
+        });
+      }
+    });
+  }
+
+  showVictorySequence() {
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    const victoryText = this.add.text(w / 2, h / 2 - 50, 'O VAZIO FOI PURIFICADO', {
+      fontSize: '72px',
+      fontFamily: 'KenneyRocket',
+      fill: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 10
+    }).setOrigin(0.5).setDepth(1500).setAlpha(0);
+
+    this.tweens.add({
+      targets: victoryText,
+      alpha: 1,
+      y: h / 2 - 80,
+      duration: 9000,
+      ease: 'Power2',
+      onComplete: () => {
+        this.time.delayedCall(13500, () => {
+          this.cameras.main.fadeOut(1500, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.saveCheckpoint(7);
+            this.scene.start('CreditsScene');
+          });
+        });
+      }
+    });
+
+    if (this.bird && this.bird.body) {
+      this.bird.isControlLocked = false;
+      this.bird.body.setAllowGravity(true);
+    }
+  }
+
   update(time, delta) {
     if (this.isGameOver) return;
 
@@ -895,8 +1229,9 @@ export default class Phase2Scene extends Phaser.Scene {
     if (this.bird && this.bird.isDead) {
       if (this.bird.y > this.scale.height + 50 && !this.isGameOver) { 
         this.isGameOver = true; 
-        if (this.bgmPhase2) this.bgmPhase2.stop();
+        this.sound.stopAll();
         this.sound.play('sfx_game_over', { loop: false });
+        this.setLowHealthBorderActive(false);
 
         this.gameOverGroup.setVisible(true);
         this.tweens.add({
@@ -905,7 +1240,7 @@ export default class Phase2Scene extends Phaser.Scene {
           duration: 1000
         });
         this.tweens.add({
-          targets: [this.gameOverText, this.gameOverBtn],
+          targets: [this.gameOverText, this.gameOverHomeBtn],
           alpha: 1,
           duration: 1000
         });
@@ -949,6 +1284,16 @@ export default class Phase2Scene extends Phaser.Scene {
     this.hearts = []; this.shieldIcons = []; const iconY = h - 30;
     for (let i = 0; i < 3; i++) { const heart = this.add.image(80 + (i * 65), iconY, 'hearth').setScale(1.5).setDepth(500).setScrollFactor(0); this.hearts.push(heart); }
     for (let i = 0; i < 3; i++) { const shield = this.add.image(300 + (i * 55), iconY, 'shield_icon').setScale(2).setDepth(500).setScrollFactor(0); shield.setVisible(false); this.shieldIcons.push(shield); }
+
+    if (!this.lowHealthBorder) {
+      const w = this.scale.width;
+      const h = this.scale.height;
+      this.lowHealthBorder = this.add.rectangle(w / 2, h / 2, w - 10, h - 10)
+        .setStrokeStyle(12, 0xff0000, 1)
+        .setDepth(1200)
+        .setScrollFactor(0)
+        .setAlpha(0);
+    }
   }
 
   rebuildHeartsHUD(maxLives) {
@@ -969,6 +1314,34 @@ export default class Phase2Scene extends Phaser.Scene {
     const lives = data.lives !== undefined ? data.lives : 3; const shields = data.shields !== undefined ? data.shields : 0;
     this.hearts.forEach((h, i) => { h.setTexture(i < lives ? 'hearth' : 'hearth_dead'); });
     this.shieldIcons.forEach((s, i) => { s.setVisible(i < shields); });
+    this.setLowHealthBorderActive(lives <= 1 && shields <= 0);
+  }
+
+  setLowHealthBorderActive(isActive) {
+    if (!this.lowHealthBorder) return;
+
+    const shouldPulse = isActive && !this.isGameOver;
+
+    if (shouldPulse) {
+      if (!this.lowHealthTween) {
+        this.lowHealthBorder.setAlpha(0.12);
+        this.lowHealthTween = this.tweens.add({
+          targets: this.lowHealthBorder,
+          alpha: 0.7,
+          duration: 550,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      }
+      return;
+    }
+
+    if (this.lowHealthTween) {
+      this.lowHealthTween.stop();
+      this.lowHealthTween = null;
+    }
+    this.lowHealthBorder.setAlpha(0);
   }
 
   createAmmoHUD() {
@@ -1046,11 +1419,21 @@ export default class Phase2Scene extends Phaser.Scene {
 
   updateProgressionHUD(data) {
     if (this.scoreText) this.scoreText.setText('SCORE: ' + data.score);
-    if (this.levelText) this.levelText.setText('LEVEL ' + data.level);
-    this.drawXPBar(data.xp / data.xpNextLevel);
+    if (this.levelText) this.levelText.setText(data.level >= 10 ? 'LEVEL MAX' : ('LEVEL ' + data.level));
+    this.drawXPBar(data.level >= 10 ? 1 : (data.xp / data.xpNextLevel));
   }
 
   updateRoundHUD() {
+    if (this.isBossTransitioning || this.isBossFightActive || this.currentRound > 6) {
+      this.roundBarFill.clear();
+      this.roundBarFill.fillStyle(0xff3333, 0.9);
+
+      const { x, y, w, h } = this.roundBarData;
+      this.roundBarFill.fillRoundedRect(x, y, w, h, 10);
+      this.roundHeaderText.setText('BOSS FIGHT');
+      return;
+    }
+
     const recipe = this.roundRecipes.find(r => r.round === this.currentRound);
     if (!recipe) return;
 
@@ -1119,7 +1502,7 @@ export default class Phase2Scene extends Phaser.Scene {
     this.pauseGroup.setVisible(false);
 
     resumeBtn.on('pointerdown', () => this.togglePause());
-    restartBtn.on('pointerdown', () => { this.isGameOver = false; this.scene.restart(); });
+    restartBtn.on('pointerdown', () => { this.restartCurrentRoundFromPause(); });
     homeBtn.on('pointerdown', () => { window.location.reload(); });
   }
 
@@ -1127,20 +1510,25 @@ export default class Phase2Scene extends Phaser.Scene {
     if (!this.bird) return;
     const dashDmg = this.bird.getDashDamage();
     const poopDmg = this.bird.getShootDamage();
+    const levelLabel = this.bird.level >= 10 ? 'MAX' : this.bird.level;
+
+    // Obtém as teclas do perfil selecionado
+    const controlScheme = SettingsService.getControlScheme();
+    const displayKeys = InputProfileService.getDisplayKeysForProfile(controlScheme);
 
     const leftText = 
-        `NÍVEL ATUAL: ${this.bird.level}\n` +
+      `NÍVEL ATUAL: ${levelLabel}\n` +
         `PONTUAÇÃO: ${this.bird.score}\n` +
         `VIDAS: ${this.bird.lives} / ${this.bird.maxLives}\n\n` +
         `DANO DO DASH: ${dashDmg}\n` +
         `DANO DO COCO: ${poopDmg}\n` +
         `MUNIÇÃO: ${this.bird.ammo} / ${this.bird.maxAmmo}`;
     const rightText = 
-        `[ SETAS ]  MOVER\n` +
-        `[ D ]  DASH (Invencível)\n` +
-        `[ESPAÇO]  ATIRAR\n\n\n` +
-        `[   S   ]  USAR ESCUDO    x ${this.bird.storedShields}\n` +
-        `[   R   ]  USAR CURA      x ${this.bird.storedHeals}`;
+        `[ ${displayKeys.moveLabel} ]  MOVER\n` +
+        `[ ${displayKeys.dashKey} ]  DASH (Invencível)\n` +
+        `[ ${displayKeys.shootKey} ]  ATIRAR\n\n\n` +
+        `[ ${displayKeys.shieldKey} ]  USAR ESCUDO    x ${this.bird.storedShields}\n` +
+        `[ ${displayKeys.healKey} ]  USAR CURA      x ${this.bird.storedHeals}`;
 
     this.statsTextLeft.setText(leftText);
     this.statsTextRight.setText(rightText);
@@ -1150,27 +1538,19 @@ export default class Phase2Scene extends Phaser.Scene {
     this.gameOverGroup = this.add.group();
     this.gameOverOverlay = this.add.rectangle(0, 0, w, h, 0x000000, 0.8).setOrigin(0).setDepth(300);
     this.gameOverText = this.add.text(w / 2, h / 2 - 80, 'GAME OVER', { fontSize: '100px', fontFamily: 'KenneyRocket', fill: '#f00', stroke: '#000', strokeThickness: 10 }).setOrigin(0.5).setDepth(301);
-    this.gameOverBtn = this.add.text(w / 2, h / 2 + 60, 'RESTART', { fontSize: '48px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#333', padding: { x: 20, y: 10 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(301);
+    this.gameOverHomeBtn = this.add.text(w / 2, h / 2 + 120, 'MENU PRINCIPAL', { fontSize: '44px', fontFamily: 'KenneyPixel', fill: '#fff', backgroundColor: '#444', padding: { x: 20, y: 10 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(301);
     
     this.gameOverOverlay.setAlpha(0);
     this.gameOverText.setAlpha(0);
-    this.gameOverBtn.setAlpha(0);
+    this.gameOverHomeBtn.setAlpha(0);
 
     this.gameOverGroup.add(this.gameOverOverlay); 
     this.gameOverGroup.add(this.gameOverText); 
-    this.gameOverGroup.add(this.gameOverBtn);
+    this.gameOverGroup.add(this.gameOverHomeBtn);
     this.gameOverGroup.setVisible(false);
 
-    this.gameOverBtn.on('pointerdown', () => { 
-        this.tweens.add({
-            targets: [this.gameOverOverlay, this.gameOverText, this.gameOverBtn],
-            alpha: 0,
-            duration: 500,
-            onComplete: () => {
-                this.isGameOver = false; 
-                this.scene.restart(); 
-            }
-        });
+    this.gameOverHomeBtn.on('pointerdown', () => {
+      window.location.reload();
     });
   }
 
@@ -1185,6 +1565,108 @@ export default class Phase2Scene extends Phaser.Scene {
     this.enemyProjectiles.getChildren().forEach(p => p.destroy && p.destroy());
   }
 
+  restartCurrentRoundFromPause() {
+    const isBossRound = this.isBossFightActive || this.isBossTransitioning || this.currentRound > 6;
+    const checkpointRound = isBossRound
+      ? 7
+      : Phaser.Math.Clamp(Math.floor(this.currentRound || 1), 1, 7);
+
+    this.saveCheckpoint(checkpointRound);
+
+    const run = this.resolveRunForPauseRestart();
+    if (!run || !run.birdData) return;
+
+    this.cleanupForRoundRestart();
+    this.scene.start('Phase2Scene', { continueData: run, saveSlotId: run.slotId });
+  }
+
+  resolveRunForPauseRestart() {
+    const slotFromContinue = this.continueData && Number.isFinite(this.continueData.slotId)
+      ? Math.floor(this.continueData.slotId)
+      : null;
+
+    const bossRound = this.isBossFightActive || this.isBossTransitioning || this.currentRound > 6;
+    const targetRound = bossRound
+      ? 7
+      : Phaser.Math.Clamp(Math.floor(this.currentRound || 1), 1, 7);
+
+    let run = Number.isFinite(this.saveSlotId) ? SaveService.loadRun(this.saveSlotId) : null;
+    if (!run && Number.isFinite(slotFromContinue)) {
+      run = SaveService.loadRun(slotFromContinue);
+    }
+
+    if (!run) {
+      const recentRuns = SaveService.loadRecentRuns(3);
+      run = recentRuns.find((r) => r.currentPhase === 2) || null;
+    }
+
+    if (!run || !run.birdData) {
+      const birdData = this.getBirdSaveData();
+      if (!birdData) return null;
+
+      const createdRun = SaveService.saveCheckpoint({
+        slotId: Number.isFinite(this.saveSlotId) ? this.saveSlotId : slotFromContinue,
+        currentPhase: 2,
+        currentRound: targetRound,
+        birdData
+      });
+
+      if (!createdRun || !createdRun.birdData) return null;
+      if (Number.isFinite(createdRun.slotId)) this.saveSlotId = createdRun.slotId;
+
+      return {
+        ...createdRun,
+        currentPhase: 2,
+        currentRound: targetRound,
+        slotId: createdRun.slotId
+      };
+    }
+
+    const normalizedRun = {
+      ...run,
+      currentPhase: 2,
+      currentRound: targetRound,
+      slotId: run.slotId
+    };
+
+    SaveService.saveCheckpoint({
+      slotId: normalizedRun.slotId,
+      currentPhase: 2,
+      currentRound: targetRound,
+      birdData: normalizedRun.birdData
+    });
+
+    if (Number.isFinite(normalizedRun.slotId)) this.saveSlotId = normalizedRun.slotId;
+    return normalizedRun;
+  }
+
+  cleanupForRoundRestart() {
+    this.isPaused = false;
+    this.isGameOver = false;
+    this.isRoundTransitioning = false;
+    this.isSpawningFinished = true;
+    this.isBossTransitioning = false;
+    this.isBossFightActive = false;
+    this.isBossSpawned = false;
+
+    if (this.pauseGroup) this.pauseGroup.setVisible(false);
+
+    this.physics.resume();
+    this.anims.resumeAll();
+    this.tweens.killAll();
+    this.time.removeAllEvents();
+
+    if (this.bossFruitTimer) {
+      this.bossFruitTimer.remove(false);
+      this.bossFruitTimer = null;
+    }
+
+    if (this.bgmPause) this.bgmPause.stop();
+    if (this.bgmPhase2) this.bgmPhase2.stop();
+    if (this.bgmRexInfernum) this.bgmRexInfernum.stop();
+    if (this.bgmBossDieCredits) this.bgmBossDieCredits.stop();
+  }
+
   togglePause() {
     if (!this.isGameStarted || this.isGameOver) return;
     this.isPaused = !this.isPaused;
@@ -1197,12 +1679,16 @@ export default class Phase2Scene extends Phaser.Scene {
         this.updatePauseStats();
 
         if (this.bgmPhase2) this.bgmPhase2.pause(); 
+        if (this.bgmRexInfernum) this.bgmRexInfernum.pause();
+        if (this.bgmBossDieCredits) this.bgmBossDieCredits.pause();
         if (this.bgmPause) this.bgmPause.play();
     } else {
         this.physics.resume();
         this.anims.resumeAll(); 
         if (this.bgmPause) this.bgmPause.stop();
         if (this.bgmPhase2) this.bgmPhase2.resume(); 
+        if (this.bgmRexInfernum) this.bgmRexInfernum.resume();
+        if (this.bgmBossDieCredits) this.bgmBossDieCredits.resume();
     }
   }
 }

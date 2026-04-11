@@ -153,9 +153,8 @@ export default class Fairy extends Phaser.Physics.Arcade.Sprite {
         onComplete: () => {
             if (!this.active || this.isDead) return;
             
-            // Escolhe um canto longe do passaro
-            const bird = this.scene.bird;
-            const targetPos = this.getBestCorner(bird);
+            // Escolhe aleatoriamente entre os cantos fixos
+            const targetPos = this.getBestCorner();
             
             this.setPosition(targetPos.x, targetPos.y);
             
@@ -180,7 +179,7 @@ export default class Fairy extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  getBestCorner(bird) {
+  getBestCorner() {
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
     const margin = 150;
@@ -192,21 +191,7 @@ export default class Fairy extends Phaser.Physics.Arcade.Sprite {
         { x: w - margin, y: h - margin - 100 } // Bottom Right
     ];
 
-    if (!bird) return corners[Phaser.Math.Between(0, corners.length - 1)];
-
-    // Filtra cantos para pegar o mais distante do passarinho
-    let bestDist = -1;
-    let bestPos = corners[0];
-
-    corners.forEach(pos => {
-        const d = Phaser.Math.Distance.Between(pos.x, pos.y, bird.x, bird.y);
-        if (d > bestDist) {
-            bestDist = d;
-            bestPos = pos;
-        }
-    });
-
-    return bestPos;
+    return corners[Phaser.Math.Between(0, corners.length - 1)];
   }
 
   update(bird, time, delta) {
@@ -250,6 +235,10 @@ export default class Fairy extends Phaser.Physics.Arcade.Sprite {
 
     this.attackTimer = this.scene.time.delayedCall(800, () => {
         if (!this.active || this.isDead) return;
+
+      if (this.scene && typeof this.scene.playSfx === 'function') {
+        this.scene.playSfx('fairy_attack', { volume: 0.65 });
+      }
         
         this.play('fairy_release_anim');
         
@@ -302,6 +291,9 @@ export default class Fairy extends Phaser.Physics.Arcade.Sprite {
 
   die() {
     this.isDead = true;
+    if (this.scene && typeof this.scene.playSfx === 'function') {
+      this.scene.playSfx('fairy_die', { volume: 0.75 });
+    }
     if (this.body) this.body.setEnable(false);
     
     if (this.attackTimer) {
