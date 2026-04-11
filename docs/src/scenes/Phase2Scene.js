@@ -225,8 +225,6 @@ export default class Phase2Scene extends Phaser.Scene {
         }
     ];
     this.onFairyShoot = null;
-    this.debugKey = null;
-    this.xpDebugKey = null;
     this.muteKey = null;
     this.hearts = [];
     this.shieldIcons = [];
@@ -467,13 +465,10 @@ export default class Phase2Scene extends Phaser.Scene {
     const inputBindings = InputProfileService.createInputBindings(this, controlScheme);
     this.bird.setControlBindings(inputBindings);
 
-    // Setup de teclas de debug (fora do perfil de jogador)
+    // Setup de teclas extras fora do perfil de jogador
     this.cursors = inputBindings.cursors;  // Guarda para referência da cena se necessário
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
-    this.xpDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
     this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
-    this.bossDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
 
     this.createHeartsHUD();
     this.createAmmoHUD();
@@ -1218,13 +1213,6 @@ export default class Phase2Scene extends Phaser.Scene {
 
     if (this.pauseKey && Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.togglePause();
     if (this.isPaused) return;
-    if (this.debugKey && Phaser.Input.Keyboard.JustDown(this.debugKey)) this.debugSkipRound();
-    if (this.xpDebugKey && Phaser.Input.Keyboard.JustDown(this.xpDebugKey) && this.bird) this.bird.gainExperience(100, 0);
-
-    if (this.bossDebugKey && Phaser.Input.Keyboard.JustDown(this.bossDebugKey)) {
-        this.currentRound = 7;
-        this.startRound();
-    }
 
     if (this.bird && this.bird.isDead) {
       if (this.bird.y > this.scale.height + 50 && !this.isGameOver) { 

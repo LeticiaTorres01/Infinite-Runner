@@ -130,14 +130,9 @@ export default class InitialSceneD extends Phaser.Scene {
     this.input.keyboard.on('keydown-SPACE', () => this.finishStory());
     this.input.on('pointerdown', () => this.finishStory());
 
-    this.phase2DebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
   }
 
   update() {
-    if (this.phase2DebugKey && Phaser.Input.Keyboard.JustDown(this.phase2DebugKey)) {
-        this.scene.start('Phase2Scene');
-        return;
-    }
     this.bgLayers.forEach(layer => {
       layer.sprite.tilePositionX += layer.speed;
     });
@@ -418,19 +413,19 @@ export default class InitialSceneD extends Phaser.Scene {
       const isSelected = selectedProfile === profile.name;
       const btn = this.add.text(xPos, h / 2 - 90, ` ${profile.label} `, {
         fontSize: '36px', fontFamily: 'KenneyPixel', 
-        fill: isSelected ? '#000' : '#fff',
-        backgroundColor: isSelected ? '#ffff00' : '#1e4a7a',
-        stroke: isSelected ? '#000' : '#00aaff',
-        strokeThickness: 3,
+        fill: isSelected ? '#ffffff' : '#dce7f5',
+        backgroundColor: isSelected ? '#3c5f8f' : '#2a3b55',
+        stroke: isSelected ? '#89a9d6' : '#5e7ca3',
+        strokeThickness: 2,
         padding: { x: 20, y: 10 }
       }).setOrigin(0.5).setDepth(2002).setInteractive({ useHandCursor: true });
 
       btn.on('pointerdown', () => {
         // Atualiza seleção visual
         profileButtons.forEach(b => {
-          b.setStyle({ fill: '#fff', backgroundColor: '#1e4a7a', stroke: '#00aaff' });
+          b.setStyle({ fill: '#dce7f5', backgroundColor: '#2a3b55', stroke: '#5e7ca3', strokeThickness: 2 });
         });
-        btn.setStyle({ fill: '#000', backgroundColor: '#ffff00', stroke: '#000' });
+        btn.setStyle({ fill: '#ffffff', backgroundColor: '#3c5f8f', stroke: '#89a9d6', strokeThickness: 2 });
         selectedProfile = profile.name;
 
         // Aplica imediatamente

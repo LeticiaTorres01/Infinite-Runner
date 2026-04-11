@@ -750,12 +750,9 @@ export default class Phase1Scene extends Phaser.Scene {
     const inputBindings = InputProfileService.createInputBindings(this, controlScheme);
     this.bird.setControlBindings(inputBindings);
 
-    // Setup de teclas de debug (fora do perfil de jogador)
+    // Setup de teclas extras fora do perfil de jogador
     this.cursors = inputBindings.cursors;  // Guarda para referência da cena se necessário
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    this.debugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
-    this.xpDebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
-    this.phase2DebugKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
 
     // SOUND MANAGER
     this.sound.stopAll();
@@ -1241,9 +1238,6 @@ export default class Phase1Scene extends Phaser.Scene {
 
     if (this.pauseKey && Phaser.Input.Keyboard.JustDown(this.pauseKey)) this.togglePause();
     if (this.isPaused) return;
-    if (Phaser.Input.Keyboard.JustDown(this.debugKey)) this.debugSkipRound();
-    if (this.xpDebugKey && Phaser.Input.Keyboard.JustDown(this.xpDebugKey) && this.bird) this.bird.gainExperience(100, 0);
-    if (this.phase2DebugKey && Phaser.Input.Keyboard.JustDown(this.phase2DebugKey)) this.goToPhase2(true);
     if (this.bird && this.bird.isDead) { 
         if (this.bird.y > 1080 + 100 && !this.isGameOver) { 
             this.isGameOver = true; 
